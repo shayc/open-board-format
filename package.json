@@ -1,0 +1,16 @@
+{
+  "name": "open-board-format",
+  "version": "0.1.0",
+  "description": "Open Board Format (OBF) TypeScript Definitions",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "open-board-format",
+    "obf",
+    "aac"
+  ],
+  "author": "Shay Cojocaru",
+  "license": "MIT"
+}
