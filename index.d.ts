@@ -93,8 +93,10 @@ export interface License extends Extensions {
 export interface Media extends Extensions {
   /** Unique identifier for the media resource. */
   id: UUID;
-  /** Data URI containing the media data. */
+  /** Base64-encoded data URI for inline media. e.g. "data:image/png;base64,iVBORw0KGgoAAA..." */
   data?: string;
+  /** URL to retrieve programmatic data about the media resource, may require authentication. */
+  data_url?: string;
   /** Path to the media file within an .obz package. */
   path?: string;
   /** URL to the media resource. */
@@ -148,7 +150,7 @@ export interface LoadBoard extends Extensions {
   id?: UUID;
   /** Name of the board to load. */
   name?: string;
-  /** Data URL to fetch the board programmatically. */
+  /** URL to retrieve programmatic data about the board, may require authentication. */
   data_url?: string;
   /** URL to access the board via a web browser. */
   url?: string;
