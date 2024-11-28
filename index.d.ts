@@ -93,7 +93,7 @@ export interface License extends Extensions {
 export interface Media extends Extensions {
   /** Unique identifier for the media resource. */
   id: UUID;
-  /** Base64-encoded data URI for inline media. e.g. "data:image/png;base64,iVBORw0KGgoAAA..." */
+  /** Base64-encoded data URI for inline media, e.g., 'data:image/png;base64,iVBORw0KGgoAAA...' */
   data?: string;
   /** URL to retrieve programmatic data about the media resource, may require authentication. */
   data_url?: string;
