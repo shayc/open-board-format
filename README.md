@@ -5,19 +5,17 @@
 
 A type-safe toolkit to parse, validate, and create Open Board Format (OBF/OBZ) files for Augmentative and Alternative Communication (AAC) applications.
 
-[Open Board Format](https://www.openboardformat.org/) is an open standard for representing AAC communication boards. This format enables users and practitioners to move boards between AAC apps without starting from scratch. It defines two file types:
+[Open Board Format](https://www.openboardformat.org/) is an open standard for representing AAC communication boards. It defines two file types:
 
 - **OBF** (`.obf`) — A JSON file describing a single communication board (buttons, images, sounds, grid layout, metadata).
 - **OBZ** (`.obz`) — A ZIP archive containing one or more `.obf` boards along with their associated media and a `manifest.json`.
 
 ## Features
 
-- **Parse & Validate:** Handle OBF boards from JSON strings, objects, or `File` handles.
-- **Create & Extract:** Manage OBZ packages (ZIP archives with boards, images, and sounds).
-- **Zod Schemas:** Every OBF type has a corresponding [Zod](https://zod.dev/) schema for runtime validation, form building, or API contracts.
-- **Full TypeScript Types:** Inferred directly from schemas—no separate type maintenance.
+- **Parse & Validate:** Parse OBF boards from JSON strings, objects, or `File` handles.
+- **Create & Extract:** Create and extract OBZ packages (ZIP archives with boards, images, and sounds).
 - **Spec-Compliant Coercion:** Numeric IDs are coerced to strings, empty strings become `undefined`, and UTF-8 BOM is handled automatically.
-- **Tree-Shakeable:** ESM build with no side effects.
+- **Zod Schemas:** Every OBF type has a corresponding [Zod](https://zod.dev/) schema for runtime validation or API contracts, with full TypeScript types inferred directly.
 
 ## Install
 
