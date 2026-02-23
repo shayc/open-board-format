@@ -104,12 +104,12 @@ if (result.success) {
 
 ### OBZ (board package)
 
-| Function                                | Description                                               |
-| --------------------------------------- | --------------------------------------------------------- |
-| `extractOBZ(buffer)`                    | Extract boards, manifest, and files from an `ArrayBuffer` |
-| `loadOBZ(file)`                         | Load an OBZ package from a browser `File`                 |
-| `createOBZ(boards, rootId, resources?)` | Create an OBZ package as a `Blob`                         |
-| `parseManifest(json)`                   | Parse and validate a `manifest.json` string               |
+| Function                                | Description                                                   |
+| --------------------------------------- | ------------------------------------------------------------- |
+| `loadOBZ(file)`                         | Load an OBZ package from a browser `File`                     |
+| `extractOBZ(buffer)`                    | Extract boards, manifest, and files from an `ArrayBuffer`     |
+| `createOBZ(boards, rootId, resources?)` | Create an OBZ package as a `Blob`                             |
+| `parseManifest(json)`                   | Parse a `manifest.json` string into a validated `OBFManifest` |
 
 ### Utilities
 
@@ -118,6 +118,32 @@ if (result.success) {
 | `isZip(buffer)` | Check if an `ArrayBuffer` starts with a ZIP magic number |
 | `zip(files)`    | Create a ZIP from a map of paths to buffers              |
 | `unzip(buffer)` | Extract a ZIP into a map of paths to `Uint8Array`        |
+
+### Types
+
+Every type has a companion Zod schema export (e.g., `OBFBoard` → `OBFBoardSchema`).
+
+| Type                  | Description                                                             |
+| --------------------- | ----------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                            |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                      |
+| `OBFButton`           | A button on the board                                                   |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                   |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                            |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                       |
+| `OBFLoadBoard`        | Reference to load another board                                         |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)            |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                  |
+| `OBFSound`            | A sound resource                                                        |
+| `OBFSymbolInfo`       | Symbol set reference                                                    |
+| `OBFManifest`         | OBZ package manifest                                                    |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, files }` |
+| `OBFID`               | Unique identifier (string, coerced from number)                         |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                          |
+| `OBFLicense`          | Licensing information                                                   |
+| `OBFLocaleCode`       | BCP 47 locale code                                                      |
+| `OBFLocalizedStrings` | Key-value string translations                                           |
+| `OBFStrings`          | Multi-locale string translations                                        |
 
 ## Development
 
