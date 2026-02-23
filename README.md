@@ -12,9 +12,8 @@ A type-safe toolkit to parse, validate, and create Open Board Format (OBF/OBZ) f
 
 ## Features
 
-- **Parse & Validate:** Parse OBF boards from JSON strings, objects, or `File` handles.
-- **Create & Extract:** Create and extract OBZ packages (ZIP archives with boards, images, and sounds).
-- **Spec-Compliant Coercion:** Numeric IDs are coerced to strings, empty strings become `undefined`, and UTF-8 BOM is handled automatically.
+- **Parse & Validate:** Parse and validate OBF boards from JSON strings, objects, or `File` handles.
+- **Create & Extract:** Serialize boards to JSON, and create or extract OBZ packages (ZIP archives with boards, images, and sounds).
 - **Zod Schemas:** Every OBF type has a corresponding [Zod](https://zod.dev/) schema for runtime validation or API contracts, with full TypeScript types inferred directly.
 
 ## Install
@@ -121,8 +120,6 @@ if (result.success) {
 
 ### Types
 
-Every type has a companion Zod schema export (e.g., `OBFBoard` → `OBFBoardSchema`).
-
 | Type                  | Description                                                             |
 | --------------------- | ----------------------------------------------------------------------- |
 | `OBFBoard`            | A single communication board                                            |
@@ -134,7 +131,7 @@ Every type has a companion Zod schema export (e.g., `OBFBoard` → `OBFBoardSche
 | `OBFLoadBoard`        | Reference to load another board                                         |
 | `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)            |
 | `OBFImage`            | An image resource (extends `OBFMedia`)                                  |
-| `OBFSound`            | A sound resource                                                        |
+| `OBFSound`            | A sound resource (extends `OBFMedia`)                                   |
 | `OBFSymbolInfo`       | Symbol set reference                                                    |
 | `OBFManifest`         | OBZ package manifest                                                    |
 | `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, files }` |
