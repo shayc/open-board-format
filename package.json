@@ -1,0 +1,48 @@
+{
+  "name": "open-board-format",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Parse, validate, and create Open Board Format (OBF/OBZ) files for AAC applications.",
+  "author": "Shay Cojocaru <shayc@outlook.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/shayc/open-board-format#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shayc/open-board-format.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shayc/open-board-format/issues"
+  },
+  "keywords": [
+    "aac",
+    "open-board-format",
+    "communication-board"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "bumpp": "^10.4.1",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "zod": "^4.3.6"
+  }
+}
