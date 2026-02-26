@@ -17,9 +17,7 @@ const COMPRESSION_LEVEL = 6;
  *
  * @param archive - The raw ZIP bytes to decompress.
  */
-export function unzip(
-  archive: ArrayBuffer,
-): Promise<Map<string, Uint8Array>> {
+export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
     const compressed = new Uint8Array(archive);
 

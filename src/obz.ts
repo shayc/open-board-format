@@ -80,7 +80,10 @@ export async function createOBZ(
 
   const encoder = new TextEncoder();
 
-  entries.set("manifest.json", encoder.encode(JSON.stringify(manifest, null, 2)));
+  entries.set(
+    "manifest.json",
+    encoder.encode(JSON.stringify(manifest, null, 2)),
+  );
 
   for (const board of boards) {
     const path = `boards/${board.id}.obf`;
@@ -122,7 +125,9 @@ function extractBoards(
     const boardBytes = entries.get(path);
 
     if (!boardBytes) {
-      throw new Error(`Board "${id}" declared in manifest but missing at path "${path}"`);
+      throw new Error(
+        `Board "${id}" declared in manifest but missing at path "${path}"`,
+      );
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
