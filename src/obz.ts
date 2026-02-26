@@ -6,63 +6,49 @@ import { isZip, unzip, zip } from "./zip";
 export interface ParsedOBZ {
   manifest: OBFManifest;
   boards: Map<string, OBFBoard>;
-  files: Map<string, Uint8Array>;
+  resources: Map<string, Uint8Array>;
 }
 
 /**
- * Load OBZ package from File
- * @param file - File object
- * @returns Parsed OBZ with manifest, boards, and files
+ * Load an OBZ archive from a user-selected file.
  */
 export async function loadOBZ(file: File): Promise<ParsedOBZ> {
-  const buffer = await file.arrayBuffer();
-  return extractOBZ(buffer);
+  const archive = await file.arrayBuffer();
+  return extractOBZ(archive);
 }
 
 /**
- * Extract OBZ package from ArrayBuffer
- * @param buffer - OBZ file as ArrayBuffer
- * @returns Parsed OBZ with manifest, boards, and files
+ * Extract boards and resources from a raw OBZ archive.
  */
-export async function extractOBZ(buffer: ArrayBuffer): Promise<ParsedOBZ> {
-  if (!isZip(buffer)) {
+export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
+  if (!isZip(archive)) {
     throw new Error("Invalid OBZ: not a ZIP file");
   }
 
-  const files = await unzip(buffer);
+  const entries = await unzip(archive);
 
-  const manifestBuffer = files.get("manifest.json");
-  if (!manifestBuffer) {
-    throw new Error("Invalid OBZ: missing manifest.json");
-  }
+  const manifest = extractManifest(entries);
+  const boards = extractBoards(manifest, entries);
 
-  const manifestText = new TextDecoder().decode(manifestBuffer);
-  const manifest = parseManifest(manifestText);
-
-  const boards = new Map<string, OBFBoard>();
-  for (const [id, path] of Object.entries(manifest.paths.boards)) {
-    const boardBuffer = files.get(path);
-    if (!boardBuffer) {
-      console.warn(`Board ${id} not found at ${path}`);
-      continue;
-    }
-
-    const boardText = new TextDecoder().decode(boardBuffer);
-    const board = parseOBF(boardText);
-
-    boards.set(id, board);
-  }
-
-  return { manifest, boards, files };
+  return { manifest, boards, resources: entries };
 }
 
 /**
- * Parse manifest.json from OBZ package
- * @param json - Manifest JSON string
- * @returns Validated Manifest object
+ * Parse and validate a manifest JSON string.
  */
 export function parseManifest(json: string): OBFManifest {
-  const data = JSON.parse(json) as unknown;
+  let data: unknown;
+
+  try {
+    data = JSON.parse(json) as unknown;
+  } catch (error) {
+    throw new Error(
+      `Invalid manifest: JSON parse failed${
+        (error as Error)?.message ? ` — ${(error as Error).message}` : ""
+      }`,
+    );
+  }
+
   const result = OBFManifestSchema.safeParse(data);
 
   if (!result.success) {
@@ -73,51 +59,80 @@ export function parseManifest(json: string): OBFManifest {
 }
 
 /**
- * Create OBZ package from boards and resources
- * @param boards - Array of Board objects
- * @param rootBoardId - ID of the root board
- * @param resources - Optional map of resource paths to buffers
- * @returns OBZ package as Blob
+ * Bundle boards and optional resources into a downloadable OBZ archive.
  */
 export async function createOBZ(
   boards: OBFBoard[],
   rootBoardId: string,
   resources?: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Blob> {
-  const files = new Map<string, Uint8Array | ArrayBuffer>();
+  const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
-  // Create and validate manifest
+  const boardPaths = Object.fromEntries(
+    boards.map((board) => [board.id, `boards/${board.id}.obf`]),
+  );
+
   const manifest = OBFManifestSchema.parse({
     format: "open-board-0.1",
     root: `boards/${rootBoardId}.obf`,
-    paths: {
-      boards: Object.fromEntries(
-        boards.map((board) => [board.id, `boards/${board.id}.obf`]),
-      ),
-      images: {},
-      sounds: {},
-    },
+    paths: { boards: boardPaths, images: {}, sounds: {} },
   });
 
-  // Add manifest.json
-  const manifestJSON = JSON.stringify(manifest, null, 2);
-  files.set("manifest.json", new TextEncoder().encode(manifestJSON).buffer);
+  const encoder = new TextEncoder();
 
-  // Add board files
+  entries.set(
+    "manifest.json",
+    encoder.encode(JSON.stringify(manifest, null, 2)),
+  );
+
   for (const board of boards) {
-    const boardJSON = JSON.stringify(board, null, 2);
     const path = `boards/${board.id}.obf`;
-    files.set(path, new TextEncoder().encode(boardJSON).buffer);
+    entries.set(path, encoder.encode(JSON.stringify(board, null, 2)));
   }
 
-  // Add resource files
   if (resources) {
-    for (const [path, buffer] of resources.entries()) {
-      files.set(path, buffer);
+    for (const [path, bytes] of resources) {
+      entries.set(path, bytes);
     }
   }
 
-  // Create ZIP
-  const zipBuffer = await zip(files);
-  return new Blob([new Uint8Array(zipBuffer)], { type: "application/zip" });
+  const compressed = await zip(entries);
+  return new Blob([new Uint8Array(compressed)], { type: "application/zip" });
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function extractManifest(entries: Map<string, Uint8Array>): OBFManifest {
+  const manifestBytes = entries.get("manifest.json");
+
+  if (!manifestBytes) {
+    throw new Error("Invalid OBZ: missing manifest.json");
+  }
+
+  const manifestJson = new TextDecoder().decode(manifestBytes);
+  return parseManifest(manifestJson);
+}
+
+function extractBoards(
+  manifest: OBFManifest,
+  entries: Map<string, Uint8Array>,
+): Map<string, OBFBoard> {
+  const boards = new Map<string, OBFBoard>();
+
+  for (const [id, path] of Object.entries(manifest.paths.boards)) {
+    const boardBytes = entries.get(path);
+
+    if (!boardBytes) {
+      throw new Error(
+        `Board "${id}" declared in manifest but missing at path "${path}"`,
+      );
+    }
+
+    const boardJson = new TextDecoder().decode(boardBytes);
+    boards.set(id, parseOBF(boardJson));
+  }
+
+  return boards;
 }
