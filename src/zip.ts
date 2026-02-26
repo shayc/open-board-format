@@ -1,37 +1,62 @@
 import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
 
-export function unzip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
-  return new Promise((resolve, reject) => {
-    const input = new Uint8Array(buffer);
+/**
+ * First two bytes of every ZIP archive — the ASCII letters `PK`,
+ * after Phil Katz, creator of the format.
+ *
+ * Only the 2-byte prefix is checked intentionally: this keeps the
+ * test lightweight and sufficient for distinguishing ZIP from JSON.
+ */
+const ZIP_MAGIC = [0x50, 0x4b] as const;
 
-    fflateUnzip(input, (error, result) => {
+/** Balanced speed-vs-size deflate level used by fflate (1–9 scale). */
+const COMPRESSION_LEVEL = 6;
+
+/**
+ * Decompress a ZIP archive into a map of file paths to raw bytes.
+ *
+ * @param archive - The raw ZIP bytes to decompress.
+ */
+export function unzip(
+  archive: ArrayBuffer,
+): Promise<Map<string, Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    const compressed = new Uint8Array(archive);
+
+    fflateUnzip(compressed, (error, entries) => {
       if (error) {
         reject(new Error(`Failed to unzip: ${error.message ?? String(error)}`));
         return;
       }
 
-      const files = new Map<string, Uint8Array>();
-      for (const [path, bytes] of Object.entries(result)) {
-        files.set(path, bytes);
-      }
+      const pathToBytes = new Map<string, Uint8Array>(Object.entries(entries));
 
-      resolve(files);
+      resolve(pathToBytes);
     });
   });
 }
 
+/**
+ * Compress a map of file paths and contents into a single ZIP archive.
+ *
+ * Accepts both `Uint8Array` and `ArrayBuffer` values so callers can
+ * pass the output of `unzip` directly or supply raw `ArrayBuffer`s
+ * without converting first.
+ *
+ * @param entries - A map of file paths to their content bytes.
+ */
 export function zip(
-  files: Map<string, Uint8Array | ArrayBuffer>,
+  entries: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
-    const input: Record<string, Uint8Array> = {};
+    const pathToBytes: Record<string, Uint8Array> = {};
 
-    for (const [path, content] of files) {
-      input[path] =
+    for (const [path, content] of entries) {
+      pathToBytes[path] =
         content instanceof Uint8Array ? content : new Uint8Array(content);
     }
 
-    fflateZip(input, { level: 6 }, (error, result) => {
+    fflateZip(pathToBytes, { level: COMPRESSION_LEVEL }, (error, result) => {
       if (error) {
         reject(new Error(`Failed to zip: ${error.message ?? String(error)}`));
         return;
@@ -42,7 +67,15 @@ export function zip(
   });
 }
 
-export function isZip(buffer: ArrayBuffer): boolean {
-  const view = new Uint8Array(buffer);
-  return view.length >= 2 && view[0] === 0x50 && view[1] === 0x4b;
+/**
+ * Test whether an `ArrayBuffer` begins with the 2-byte ZIP
+ * magic prefix (`PK`).
+ */
+export function isZip(archive: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(archive);
+
+  return (
+    bytes.length >= ZIP_MAGIC.length &&
+    ZIP_MAGIC.every((byte, index) => bytes[index] === byte)
+  );
 }
