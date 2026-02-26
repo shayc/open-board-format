@@ -46,14 +46,14 @@ const fromFile = await loadOBF(file);
 import { loadOBZ, extractOBZ } from "open-board-format";
 
 // From a File (e.g. drag-and-drop)
-const { manifest, boards, files } = await loadOBZ(file);
+const { manifest, boards, resources } = await loadOBZ(file);
 
 // Or from an ArrayBuffer (e.g. fetch response)
 const parsed = await extractOBZ(buffer);
 
-// Access boards and raw files
+// Access boards and resources
 const homeBoard = parsed.boards.get("1");
-const imageBytes = parsed.files.get("images/logo.png");
+const imageBytes = parsed.resources.get("images/logo.png");
 ```
 
 ### Create an OBZ package
@@ -106,7 +106,7 @@ if (result.success) {
 | Function                                | Description                                                   |
 | --------------------------------------- | ------------------------------------------------------------- |
 | `loadOBZ(file)`                         | Load an OBZ package from a browser `File`                     |
-| `extractOBZ(buffer)`                    | Extract boards, manifest, and files from an `ArrayBuffer`     |
+| `extractOBZ(archive)`                   | Extract boards, manifest, and resources from an `ArrayBuffer` |
 | `createOBZ(boards, rootId, resources?)` | Create an OBZ package as a `Blob`                             |
 | `parseManifest(json)`                   | Parse a `manifest.json` string into a validated `OBFManifest` |
 
@@ -114,9 +114,9 @@ if (result.success) {
 
 | Function        | Description                                              |
 | --------------- | -------------------------------------------------------- |
-| `isZip(buffer)` | Check if an `ArrayBuffer` starts with a ZIP magic number |
-| `zip(files)`    | Create a ZIP from a map of paths to buffers              |
-| `unzip(buffer)` | Extract a ZIP into a map of paths to `Uint8Array`        |
+| `isZip(archive)` | Check if an `ArrayBuffer` starts with a ZIP magic number |
+| `zip(entries)`   | Create a ZIP from a map of paths to buffers              |
+| `unzip(archive)` | Extract a ZIP into a map of paths to `Uint8Array`        |
 
 ### Types
 
@@ -134,7 +134,7 @@ if (result.success) {
 | `OBFSound`            | A sound resource (extends `OBFMedia`)                                   |
 | `OBFSymbolInfo`       | Symbol set reference                                                    |
 | `OBFManifest`         | OBZ package manifest                                                    |
-| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, files }` |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }` |
 | `OBFID`               | Unique identifier (string, coerced from number)                         |
 | `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                          |
 | `OBFLicense`          | Licensing information                                                   |
