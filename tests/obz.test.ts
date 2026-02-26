@@ -42,8 +42,8 @@ describe("extractOBZ", () => {
     const result = await extractOBZ(await obzBlob.arrayBuffer());
 
     expect(result.manifest.root).toBe("boards/test.obf");
-    expect(result.files.has("manifest.json")).toBe(true);
-    expect(result.files.has("boards/test.obf")).toBe(true);
+    expect(result.resources.has("manifest.json")).toBe(true);
+    expect(result.resources.has("boards/test.obf")).toBe(true);
 
     const extractedBoard = result.boards.get("test");
     expect(extractedBoard).toMatchObject({
@@ -72,7 +72,7 @@ describe("extractOBZ", () => {
     );
   });
 
-  test("handles manifest referencing missing board file", async () => {
+  test("throws when manifest references a missing board file", async () => {
     const manifest = JSON.stringify({
       format: "open-board-0.1",
       root: "boards/missing.obf",
@@ -83,10 +83,9 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(filesWithMissingBoard);
 
-    const result = await extractOBZ(zipBuffer.buffer as ArrayBuffer);
-
-    expect(result.boards.size).toBe(0);
-    expect(result.boards.has("missing")).toBe(false);
+    await expect(
+      extractOBZ(zipBuffer.buffer as ArrayBuffer),
+    ).rejects.toThrow('Board "missing" declared in manifest but missing');
   });
 });
 
@@ -123,7 +122,7 @@ describe("createOBZ", () => {
     const obzBlob = await createOBZ([board], "board-1", resources);
     const extracted = await extractOBZ(await obzBlob.arrayBuffer());
 
-    expect(extracted.files.get("images/test.png")).toEqual(imageData);
+    expect(extracted.resources.get("images/test.png")).toEqual(imageData);
   });
 });
 
