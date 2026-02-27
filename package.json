@@ -1,7 +1,7 @@
 {
   "name": "open-board-format",
   "type": "module",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Parse, validate, and create Open Board Format (OBF/OBZ) files for AAC applications.",
   "author": "Shay Cojocaru <shayc@outlook.com>",
   "license": "MIT",
