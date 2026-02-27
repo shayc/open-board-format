@@ -19,8 +19,13 @@ function buildParseErrorMessage(error: unknown): string {
 /**
  * Parse a JSON string into a validated OBF board.
  *
- * Handles an optional UTF-8 BOM prefix and throws a descriptive
- * error if the input is malformed or fails schema validation.
+ * Strips an optional UTF-8 BOM prefix before parsing and throws a
+ * descriptive error if the input is malformed or fails schema validation.
+ *
+ * @param json - The JSON string to parse.
+ * @returns The validated board object.
+ *
+ * @throws {Error} If the JSON is malformed or does not conform to the OBF schema.
  */
 export function parseOBF(json: string): OBFBoard {
   const sanitized = stripBom(json);
@@ -37,10 +42,15 @@ export function parseOBF(json: string): OBFBoard {
 }
 
 /**
- * Read a `File` handle and parse its contents as an OBF board.
+ * Read a `File` and parse its contents as a validated OBF board.
  *
  * This relies on the browser `File` API; for Node environments,
  * read the file to a string and pass it to {@link parseOBF} instead.
+ *
+ * @param file - A `File` handle pointing to an `.obf` file.
+ * @returns The validated board object.
+ *
+ * @throws {Error} If the file content is malformed or fails schema validation.
  */
 export async function loadOBF(file: File): Promise<OBFBoard> {
   const json = await file.text();
@@ -50,7 +60,10 @@ export async function loadOBF(file: File): Promise<OBFBoard> {
 /**
  * Validate an unknown value against the OBF board schema.
  *
- * @throws {Error} If the value does not conform to the schema.
+ * @param data - The value to validate.
+ * @returns The validated board object.
+ *
+ * @throws {Error} If the value does not conform to the OBF schema.
  */
 export function validateOBF(data: unknown): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);
@@ -63,7 +76,10 @@ export function validateOBF(data: unknown): OBFBoard {
 }
 
 /**
- * Serialize an OBF board to a pretty-printed JSON string.
+ * Stringify an OBF board to a pretty-printed JSON string.
+ *
+ * @param board - The board to stringify.
+ * @returns A JSON string with two-space indentation.
  */
 export function stringifyOBF(board: OBFBoard): string {
   return JSON.stringify(board, null, 2);

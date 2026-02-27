@@ -33,7 +33,7 @@ const OBFOptionalIDSchema = z
   })
   .optional();
 
-/** Unique identifier as a string. Must be a non-empty string or number (coerced to string). */
+/** Unique board-element identifier, coerced to a non-empty string. */
 export const OBFIDSchema = z
   .union([z.string(), z.number()])
   .transform((val) => String(val))
@@ -53,28 +53,28 @@ export const OBFLocaleCodeSchema = z.string();
 export type OBFLocaleCode = z.infer<typeof OBFLocaleCodeSchema>;
 
 /**
- * Mapping of string keys to localized string values.
+ * Key–value pairs mapping symbolic names to their translations in a single locale.
  */
 export const OBFLocalizedStringsSchema = z.record(z.string(), z.string());
 export type OBFLocalizedStrings = z.infer<typeof OBFLocalizedStringsSchema>;
 
 /**
- * String translations for multiple locales.
+ * Locale-keyed dictionary of translated strings,
+ * e.g., `{ en: { greeting: "Hello" }, fr: { greeting: "Bonjour" } }`.
  */
 export const OBFStringsSchema = z.record(z.string(), OBFLocalizedStringsSchema);
 export type OBFStrings = z.infer<typeof OBFStringsSchema>;
 
 /**
- * Represents custom actions for spelling.
- * Prefixed with '+' followed by the text to append.
+ * Spelling action: a `+` prefix followed by the text to append,
+ * e.g., `"+hello"`.
  */
 export const OBFSpellingActionSchema = z.string().regex(/^\+.+$/);
 export type OBFSpellingAction = z.infer<typeof OBFSpellingActionSchema>;
 
 /**
- * Represents specialty actions.
- * Standard actions are prefixed with ':'.
- * Custom actions start with ':ext_'.
+ * Specialty action prefixed with `:`, e.g., `":clear"`.
+ * Custom extensions use the `:ext_` prefix.
  */
 export const OBFSpecialtyActionSchema = z
   .string()
@@ -82,7 +82,7 @@ export const OBFSpecialtyActionSchema = z
 export type OBFSpecialtyAction = z.infer<typeof OBFSpecialtyActionSchema>;
 
 /**
- * Possible actions associated with a button.
+ * Union of spelling and specialty actions that a button can trigger.
  */
 export const OBFButtonActionSchema = z.union([
   OBFSpellingActionSchema,
@@ -91,7 +91,7 @@ export const OBFButtonActionSchema = z.union([
 export type OBFButtonAction = z.infer<typeof OBFButtonActionSchema>;
 
 /**
- * Licensing information for a resource.
+ * License terms and attribution for a resource.
  */
 export const OBFLicenseSchema = z.object({
   /** Type of the license, e.g., 'CC-BY-SA'. */
@@ -138,7 +138,7 @@ export const OBFMediaSchema = z.object({
 export type OBFMedia = z.infer<typeof OBFMediaSchema>;
 
 /**
- * Information about a symbol from a proprietary symbol set.
+ * Reference to a symbol in a proprietary symbol set (e.g., SymbolStix).
  */
 export const OBFSymbolInfoSchema = z.object({
   /** Name of the symbol set, e.g., 'symbolstix'. */
@@ -149,13 +149,14 @@ export const OBFSymbolInfoSchema = z.object({
 export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
 
 /**
- * Represents an image resource.
+ * Image resource, extending {@link OBFMediaSchema} with optional
+ * symbol and dimension properties.
  *
- * When resolving the image, if multiple references are provided, they should be used in the following order:
- * 1. data
- * 2. path
- * 3. url
- * 4. symbol
+ * When resolving the image, consumers should prefer sources in this order:
+ * 1. `data`
+ * 2. `path`
+ * 3. `url`
+ * 4. `symbol`
  */
 export const OBFImageSchema = OBFMediaSchema.and(
   z.object({
@@ -170,13 +171,13 @@ export const OBFImageSchema = OBFMediaSchema.and(
 export type OBFImage = z.infer<typeof OBFImageSchema>;
 
 /**
- * Represents a sound resource.
+ * Audio resource. Identical to {@link OBFMediaSchema} — no additional properties.
  */
-export const OBFSoundSchema = OBFMediaSchema; // No additional properties.
+export const OBFSoundSchema = OBFMediaSchema;
 export type OBFSound = z.infer<typeof OBFSoundSchema>;
 
 /**
- * Information needed to load another board.
+ * Reference to another board, resolved by ID, path, or URL.
  */
 export const OBFLoadBoardSchema = z.object({
   /** Unique identifier of the board to load. */
@@ -194,7 +195,7 @@ export const OBFLoadBoardSchema = z.object({
 export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
 
 /**
- * Represents a button on the board.
+ * Interactive element on a board, optionally linked to images, sounds, and actions.
  */
 export const OBFButtonSchema = z.object({
   /** Unique identifier for the button. */
@@ -230,7 +231,7 @@ export const OBFButtonSchema = z.object({
 export type OBFButton = z.infer<typeof OBFButtonSchema>;
 
 /**
- * Grid layout information for the board.
+ * Row-and-column layout that arranges buttons by their IDs.
  */
 export const OBFGridSchema = z
   .object({
@@ -253,7 +254,7 @@ export const OBFGridSchema = z
 export type OBFGrid = z.infer<typeof OBFGridSchema>;
 
 /**
- * Represents the root object of an OBF file, defining the structure and layout of a board.
+ * Root object of an `.obf` file: the complete definition of a single communication board.
  */
 export const OBFBoardSchema = z.object({
   /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */
@@ -285,7 +286,7 @@ export const OBFBoardSchema = z.object({
 export type OBFBoard = z.infer<typeof OBFBoardSchema>;
 
 /**
- * Manifest file in an .obz package.
+ * Table of contents for an `.obz` package, mapping resource IDs to their archive paths.
  */
 export const OBFManifestSchema = z.object({
   /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */

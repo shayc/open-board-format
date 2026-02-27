@@ -15,7 +15,10 @@ const COMPRESSION_LEVEL = 6;
 /**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
- * @param archive - The raw ZIP bytes to decompress.
+ * @param archive - The ZIP archive as an `ArrayBuffer`.
+ * @returns A map of file paths to their decompressed content.
+ *
+ * @throws {Error} If decompression fails.
  */
 export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
@@ -38,10 +41,13 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
  * Compress a map of file paths and contents into a single ZIP archive.
  *
  * Accepts both `Uint8Array` and `ArrayBuffer` values so callers can
- * pass the output of `unzip` directly or supply raw `ArrayBuffer`s
+ * pass the output of {@link unzip} directly or supply raw `ArrayBuffer`s
  * without converting first.
  *
  * @param entries - A map of file paths to their content bytes.
+ * @returns The compressed archive as a `Uint8Array`.
+ *
+ * @throws {Error} If compression fails.
  */
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,
@@ -66,8 +72,11 @@ export function zip(
 }
 
 /**
- * Test whether an `ArrayBuffer` begins with the 2-byte ZIP
- * magic prefix (`PK`).
+ * Test whether an `ArrayBuffer` begins with the two-byte ZIP magic
+ * prefix (`PK`).
+ *
+ * @param archive - The buffer to inspect.
+ * @returns `true` if the buffer starts with the ZIP signature.
  */
 export function isZip(archive: ArrayBuffer): boolean {
   const bytes = new Uint8Array(archive);

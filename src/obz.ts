@@ -3,6 +3,13 @@ import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFManifestSchema } from "./schema";
 import { isZip, unzip, zip } from "./zip";
 
+/**
+ * Fully extracted contents of an `.obz` archive.
+ *
+ * @property manifest  - The package table of contents.
+ * @property boards    - Board ID → validated board object.
+ * @property resources - Archive path → raw binary content (images, sounds, etc.).
+ */
 export interface ParsedOBZ {
   manifest: OBFManifest;
   boards: Map<string, OBFBoard>;
@@ -10,7 +17,15 @@ export interface ParsedOBZ {
 }
 
 /**
- * Load an OBZ archive from a user-selected file.
+ * Read a `File` and extract its contents as a parsed OBZ package.
+ *
+ * This relies on the browser `File` API; for Node environments,
+ * read the file to an `ArrayBuffer` and pass it to {@link extractOBZ} instead.
+ *
+ * @param file - A `File` handle pointing to an `.obz` archive.
+ * @returns The parsed manifest, boards, and binary resources.
+ *
+ * @throws {Error} If the file is not a valid ZIP or the manifest is missing.
  */
 export async function loadOBZ(file: File): Promise<ParsedOBZ> {
   const archive = await file.arrayBuffer();
@@ -18,7 +33,13 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
 }
 
 /**
- * Extract boards and resources from a raw OBZ archive.
+ * Decompress an OBZ archive and return its manifest, boards, and resources.
+ *
+ * @param archive - The OBZ archive as an `ArrayBuffer`.
+ * @returns The parsed manifest, a map of board IDs to validated boards,
+ *          and a map of file paths to their binary content.
+ *
+ * @throws {Error} If the archive is not a valid ZIP or the manifest is missing.
  */
 export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
   if (!isZip(archive)) {
@@ -34,7 +55,13 @@ export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
 }
 
 /**
- * Parse and validate a manifest JSON string.
+ * Parse and validate an OBZ manifest — the table of contents that maps
+ * board IDs to their file paths within the archive.
+ *
+ * @param json - A JSON string representing the manifest.
+ * @returns The validated manifest object.
+ *
+ * @throws {Error} If the JSON is malformed or fails schema validation.
  */
 export function parseManifest(json: string): OBFManifest {
   let data: unknown;
@@ -59,7 +86,17 @@ export function parseManifest(json: string): OBFManifest {
 }
 
 /**
- * Bundle boards and optional resources into a downloadable OBZ archive.
+ * Bundle boards and optional resources into a compressed OBZ archive.
+ *
+ * A manifest is generated automatically from the supplied boards,
+ * using the `rootBoardId` to designate the entry-point board.
+ *
+ * @param boards - The boards to include in the archive.
+ * @param rootBoardId - The ID of the board that serves as the archive's entry point.
+ * @param resources - Optional map of file paths to binary content (images, sounds, etc.).
+ * @returns A `Blob` containing the compressed OBZ archive.
+ *
+ * @throws {Error} If `rootBoardId` does not match any of the supplied boards.
  */
 export async function createOBZ(
   boards: OBFBoard[],
