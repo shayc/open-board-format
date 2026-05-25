@@ -124,6 +124,88 @@ describe("createOBZ", () => {
 
     expect(extracted.resources.get("images/test.png")).toEqual(imageData);
   });
+
+  test("throws when rootBoardId does not match any supplied board", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "actual-board",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+
+    await expect(createOBZ([board], "wrong-id")).rejects.toThrow(
+      /rootBoardId "wrong-id" does not match/,
+    );
+  });
+
+  test("populates manifest.paths.images from board image entries", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [{ id: "btn", image_id: "i1" }],
+      grid: { rows: 1, columns: 1, order: [["btn"]] },
+      images: [{ id: "i1", path: "images/i1.png" }],
+    };
+
+    const extracted = await extractOBZ(
+      await (await createOBZ([board], "b")).arrayBuffer(),
+    );
+
+    expect(extracted.manifest.paths.images).toEqual({ "i1": "images/i1.png" });
+  });
+
+  test("populates manifest.paths.sounds from board sound entries", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [{ id: "btn", sound_id: "s1" }],
+      grid: { rows: 1, columns: 1, order: [["btn"]] },
+      sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
+    };
+
+    const extracted = await extractOBZ(
+      await (await createOBZ([board], "b")).arrayBuffer(),
+    );
+
+    expect(extracted.manifest.paths.sounds).toEqual({ "s1": "sounds/s1.mp3" });
+  });
+
+  test("omits sounds map when no sounds have paths", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+
+    const extracted = await extractOBZ(
+      await (await createOBZ([board], "b")).arrayBuffer(),
+    );
+
+    expect(extracted.manifest.paths.sounds).toBeUndefined();
+    expect(extracted.manifest.paths.images).toEqual({});
+  });
+
+  test("throws when two boards declare the same image id with conflicting paths", async () => {
+    const board1: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b1",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+      images: [{ id: "shared", path: "images/a.png" }],
+    };
+    const board2: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b2",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+      images: [{ id: "shared", path: "images/b.png" }],
+    };
+
+    await expect(createOBZ([board1, board2], "b1")).rejects.toThrow(
+      /images id "shared" maps to conflicting paths/,
+    );
+  });
 });
 
 describe("Integration: createOBZ and extractOBZ", () => {

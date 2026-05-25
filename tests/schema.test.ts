@@ -589,4 +589,29 @@ describe("Integration: Real-world OBF Board", () => {
       expect(result.data.grid.columns).toBe(3);
     }
   });
+
+  test("preserves ext_ extension fields at every nesting level", () => {
+    const result = OBFBoardSchema.safeParse(lotsOfStuffExample);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const board = result.data as Record<string, unknown> & typeof result.data;
+    expect(board.ext_speaker_url).toBe("http://www.example.com/mylink");
+
+    const buttonB5 = result.data.buttons.find((b) => b.id === "b5") as
+      | (Record<string, unknown> & (typeof result.data.buttons)[number])
+      | undefined;
+    expect(buttonB5?.ext_speaker_should_be_hidden_in_preview).toBe(true);
+
+    const sadCatImage = result.data.images?.find(
+      (img) => (img as Record<string, unknown>).ext_speaker_freshness !== undefined,
+    ) as Record<string, unknown> | undefined;
+    expect(sadCatImage?.ext_speaker_freshness).toBe("some");
+
+    const soundS2 = result.data.sounds?.find((s) => s.id === "s2") as
+      | (Record<string, unknown> & NonNullable<typeof result.data.sounds>[number])
+      | undefined;
+    expect(soundS2?.ext_speaker_coolness).toBe(4);
+  });
 });

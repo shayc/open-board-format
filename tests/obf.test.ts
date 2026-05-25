@@ -7,7 +7,9 @@ const validBoard: OBFBoard = {
   id: "test-board",
   buttons: [{ id: "btn-1", label: "Hello" }],
   grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-};
+  // ext_ keys are spec-blessed extension fields and must survive round-trip.
+  ext_speaker_color: "blue",
+} as OBFBoard & { ext_speaker_color: string };
 
 describe("parseOBF", () => {
   test("parses valid JSON board", () => {
@@ -66,5 +68,21 @@ describe("OBF round-trip", () => {
     const parsed = parseOBF(json);
 
     expect(parsed).toEqual(validBoard);
+  });
+
+  test("round-trip preserves ext_ fields at button level", () => {
+    const boardWithButtonExt: OBFBoard = {
+      format: "open-board-0.1",
+      id: "ext-button-board",
+      buttons: [
+        { id: "b1", label: "Hi", ext_myapp_anim: "fade" } as OBFBoard["buttons"][number],
+      ],
+      grid: { rows: 1, columns: 1, order: [["b1"]] },
+    };
+
+    const parsed = parseOBF(stringifyOBF(boardWithButtonExt));
+    expect((parsed.buttons[0] as Record<string, unknown>).ext_myapp_anim).toBe(
+      "fade",
+    );
   });
 });

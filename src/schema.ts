@@ -93,7 +93,7 @@ export type OBFButtonAction = z.infer<typeof OBFButtonActionSchema>;
 /**
  * License terms and attribution for a resource.
  */
-export const OBFLicenseSchema = z.object({
+export const OBFLicenseSchema = z.looseObject({
   /** Type of the license, e.g., 'CC-BY-SA'. */
   type: z.string(),
   /** URL to the license terms. */
@@ -118,7 +118,7 @@ export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
  * 2. path
  * 3. url
  */
-export const OBFMediaSchema = z.object({
+export const OBFMediaSchema = z.looseObject({
   /** Unique identifier for the media resource. */
   id: OBFIDSchema,
   /** Data URI containing the media data. */
@@ -140,7 +140,7 @@ export type OBFMedia = z.infer<typeof OBFMediaSchema>;
 /**
  * Reference to a symbol in a proprietary symbol set (e.g., SymbolStix).
  */
-export const OBFSymbolInfoSchema = z.object({
+export const OBFSymbolInfoSchema = z.looseObject({
   /** Name of the symbol set, e.g., 'symbolstix'. */
   set: z.string(),
   /** Filename of the symbol within the set. */
@@ -179,7 +179,7 @@ export type OBFSound = z.infer<typeof OBFSoundSchema>;
 /**
  * Reference to another board, resolved by ID, path, or URL.
  */
-export const OBFLoadBoardSchema = z.object({
+export const OBFLoadBoardSchema = z.looseObject({
   /** Unique identifier of the board to load. */
   id: OBFOptionalIDSchema,
   /** Name of the board to load. */
@@ -197,7 +197,7 @@ export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
 /**
  * Interactive element on a board, optionally linked to images, sounds, and actions.
  */
-export const OBFButtonSchema = z.object({
+export const OBFButtonSchema = z.looseObject({
   /** Unique identifier for the button. */
   id: OBFIDSchema,
   /** Label text displayed on the button. */
@@ -234,7 +234,7 @@ export type OBFButton = z.infer<typeof OBFButtonSchema>;
  * Row-and-column layout that arranges buttons by their IDs.
  */
 export const OBFGridSchema = z
-  .object({
+  .looseObject({
     /** Number of rows in the grid. */
     rows: z.number().int().min(1),
     /** Number of columns in the grid. */
@@ -256,7 +256,7 @@ export type OBFGrid = z.infer<typeof OBFGridSchema>;
 /**
  * Root object of an `.obf` file: the complete definition of a single communication board.
  */
-export const OBFBoardSchema = z.object({
+export const OBFBoardSchema = z.looseObject({
   /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */
   format: OBFFormatVersionSchema,
   /** Unique identifier for the board. */
@@ -288,13 +288,13 @@ export type OBFBoard = z.infer<typeof OBFBoardSchema>;
 /**
  * Table of contents for an `.obz` package, mapping resource IDs to their archive paths.
  */
-export const OBFManifestSchema = z.object({
+export const OBFManifestSchema = z.looseObject({
   /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */
   format: OBFFormatVersionSchema,
   /** Path to the root board within the .obz package. */
   root: z.string(),
   /** Mapping of IDs to paths for boards, images, and sounds. */
-  paths: z.object({
+  paths: z.looseObject({
     /** Mapping of board IDs to their file paths. */
     boards: z.record(z.string(), z.string()),
     /** Mapping of image IDs to their file paths. */
