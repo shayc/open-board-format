@@ -103,16 +103,29 @@ export async function createOBZ(
   rootBoardId: string,
   resources?: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Blob> {
+  if (!boards.some((board) => board.id === rootBoardId)) {
+    throw new Error(
+      `Invalid OBZ: rootBoardId "${rootBoardId}" does not match any supplied board`,
+    );
+  }
+
   const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
   const boardPaths = Object.fromEntries(
     boards.map((board) => [board.id, `boards/${board.id}.obf`]),
   );
 
+  const imagePaths = collectMediaPaths(boards, "images");
+  const soundPaths = collectMediaPaths(boards, "sounds");
+
   const manifest = OBFManifestSchema.parse({
     format: "open-board-0.1",
     root: `boards/${rootBoardId}.obf`,
-    paths: { boards: boardPaths, images: {}, sounds: {} },
+    paths: {
+      boards: boardPaths,
+      images: imagePaths,
+      ...(Object.keys(soundPaths).length > 0 ? { sounds: soundPaths } : {}),
+    },
   });
 
   const encoder = new TextEncoder();
@@ -140,6 +153,35 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Walk every board's media collection and produce the `{ id -> path }` map
+ * the spec calls "redundant but still required" for the OBZ manifest.
+ *
+ * Throws when two boards declare the same media id with conflicting paths
+ * — a silent OBZ that points at a non-existent file is worse than a clear error.
+ */
+function collectMediaPaths(
+  boards: OBFBoard[],
+  kind: "images" | "sounds",
+): Record<string, string> {
+  const paths: Record<string, string> = {};
+
+  for (const board of boards) {
+    for (const media of board[kind] ?? []) {
+      if (media.path === undefined) continue;
+      const existing = paths[media.id];
+      if (existing !== undefined && existing !== media.path) {
+        throw new Error(
+          `Invalid OBZ: ${kind} id "${media.id}" maps to conflicting paths "${existing}" and "${media.path}"`,
+        );
+      }
+      paths[media.id] = media.path;
+    }
+  }
+
+  return paths;
+}
 
 function extractManifest(entries: Map<string, Uint8Array>): OBFManifest {
   const manifestBytes = entries.get("manifest.json");
