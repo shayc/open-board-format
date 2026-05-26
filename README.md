@@ -1,7 +1,7 @@
-# open-board-format
+# @shayc/open-board-format
 
-[![npm version](https://img.shields.io/npm/v/open-board-format)](https://www.npmjs.com/package/open-board-format)
-[![license](https://img.shields.io/npm/l/open-board-format)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
+[![license](https://img.shields.io/npm/l/@shayc/open-board-format)](LICENSE)
 
 A type-safe toolkit to parse, validate, and create Open Board Format (OBF/OBZ) files for Augmentative and Alternative Communication (AAC) applications.
 
@@ -19,7 +19,7 @@ A type-safe toolkit to parse, validate, and create Open Board Format (OBF/OBZ) f
 ## Install
 
 ```bash
-npm install open-board-format
+npm install @shayc/open-board-format
 ```
 
 ## Quick start
@@ -27,7 +27,7 @@ npm install open-board-format
 ### Parse a single board (OBF)
 
 ```ts
-import { parseOBF, validateOBF, loadOBF } from "open-board-format";
+import { parseOBF, validateOBF, loadOBF } from "@shayc/open-board-format";
 
 // Parse from a JSON string
 const board = parseOBF(jsonString);
@@ -43,7 +43,7 @@ const fromFile = await loadOBF(file);
 ### Extract an OBZ package
 
 ```ts
-import { loadOBZ, extractOBZ } from "open-board-format";
+import { loadOBZ, extractOBZ } from "@shayc/open-board-format";
 
 // From a File (e.g. drag-and-drop)
 const { manifest, boards, resources } = await loadOBZ(file);
@@ -59,8 +59,8 @@ const imageBytes = parsed.resources.get("images/logo.png");
 ### Create an OBZ package
 
 ```ts
-import { createOBZ } from "open-board-format";
-import type { OBFBoard } from "open-board-format";
+import { createOBZ } from "@shayc/open-board-format";
+import type { OBFBoard } from "@shayc/open-board-format";
 
 const boards: OBFBoard[] = [
   {
@@ -79,7 +79,7 @@ const blob = await createOBZ(boards, "board-1", resources);
 ### Use Zod schemas directly
 
 ```ts
-import { OBFBoardSchema } from "open-board-format";
+import { OBFBoardSchema } from "@shayc/open-board-format";
 
 const result = OBFBoardSchema.safeParse(data);
 
