@@ -35,7 +35,7 @@ export function parseOBF(json: string): OBFBoard {
   try {
     rawBoard = JSON.parse(sanitized) as unknown;
   } catch (error) {
-    throw new Error(buildParseErrorMessage(error));
+    throw new Error(buildParseErrorMessage(error), { cause: error });
   }
 
   return validateOBF(rawBoard);

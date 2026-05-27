@@ -112,35 +112,35 @@ if (result.success) {
 
 ### Utilities
 
-| Function        | Description                                              |
-| --------------- | -------------------------------------------------------- |
+| Function         | Description                                              |
+| ---------------- | -------------------------------------------------------- |
 | `isZip(archive)` | Check if an `ArrayBuffer` starts with a ZIP magic number |
 | `zip(entries)`   | Create a ZIP from a map of paths to buffers              |
 | `unzip(archive)` | Extract a ZIP into a map of paths to `Uint8Array`        |
 
 ### Types
 
-| Type                  | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| `OBFBoard`            | A single communication board                                            |
-| `OBFGrid`             | Grid layout (rows, columns, order)                                      |
-| `OBFButton`           | A button on the board                                                   |
-| `OBFButtonAction`     | Button action (spelling or specialty)                                   |
-| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                            |
-| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                       |
-| `OBFLoadBoard`        | Reference to load another board                                         |
-| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)            |
-| `OBFImage`            | An image resource (extends `OBFMedia`)                                  |
-| `OBFSound`            | A sound resource (extends `OBFMedia`)                                   |
-| `OBFSymbolInfo`       | Symbol set reference                                                    |
-| `OBFManifest`         | OBZ package manifest                                                    |
+| Type                  | Description                                                                 |
+| --------------------- | --------------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                                |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                          |
+| `OBFButton`           | A button on the board                                                       |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                       |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                           |
+| `OBFLoadBoard`        | Reference to load another board                                             |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                      |
+| `OBFSound`            | A sound resource (extends `OBFMedia`)                                       |
+| `OBFSymbolInfo`       | Symbol set reference                                                        |
+| `OBFManifest`         | OBZ package manifest                                                        |
 | `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }` |
-| `OBFID`               | Unique identifier (string, coerced from number)                         |
-| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                          |
-| `OBFLicense`          | Licensing information                                                   |
-| `OBFLocaleCode`       | BCP 47 locale code                                                      |
-| `OBFLocalizedStrings` | Key-value string translations                                           |
-| `OBFStrings`          | Multi-locale string translations                                        |
+| `OBFID`               | Unique identifier (string, coerced from number)                             |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                              |
+| `OBFLicense`          | Licensing information                                                       |
+| `OBFLocaleCode`       | BCP 47 locale code                                                          |
+| `OBFLocalizedStrings` | Key-value string translations                                               |
+| `OBFStrings`          | Multi-locale string translations                                            |
 
 ## Development
 

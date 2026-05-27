@@ -83,9 +83,9 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(filesWithMissingBoard);
 
-    await expect(
-      extractOBZ(zipBuffer.buffer as ArrayBuffer),
-    ).rejects.toThrow('Board "missing" declared in manifest but missing');
+    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
+      'Board "missing" declared in manifest but missing',
+    );
   });
 });
 
@@ -151,7 +151,7 @@ describe("createOBZ", () => {
       await (await createOBZ([board], "b")).arrayBuffer(),
     );
 
-    expect(extracted.manifest.paths.images).toEqual({ "i1": "images/i1.png" });
+    expect(extracted.manifest.paths.images).toEqual({ i1: "images/i1.png" });
   });
 
   test("populates manifest.paths.sounds from board sound entries", async () => {
@@ -167,7 +167,7 @@ describe("createOBZ", () => {
       await (await createOBZ([board], "b")).arrayBuffer(),
     );
 
-    expect(extracted.manifest.paths.sounds).toEqual({ "s1": "sounds/s1.mp3" });
+    expect(extracted.manifest.paths.sounds).toEqual({ s1: "sounds/s1.mp3" });
   });
 
   test("omits sounds map when no sounds have paths", async () => {
