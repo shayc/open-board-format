@@ -1,7 +1,7 @@
 {
   "name": "@shayc/open-board-format",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Parse, validate, and create Open Board Format (OBF/OBZ) files for AAC applications.",
   "author": "Shay Cojocaru <shayc@outlook.com>",
   "license": "MIT",
