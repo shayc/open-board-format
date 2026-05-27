@@ -25,7 +25,8 @@
   },
   "types": "./dist/index.d.mts",
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown",
