@@ -73,6 +73,7 @@ export function parseManifest(json: string): OBFManifest {
       `Invalid manifest: JSON parse failed${
         (error as Error)?.message ? ` — ${(error as Error).message}` : ""
       }`,
+      { cause: error },
     );
   }
 
@@ -169,7 +170,10 @@ function collectMediaPaths(
 
   for (const board of boards) {
     for (const media of board[kind] ?? []) {
-      if (media.path === undefined) continue;
+      if (media.path === undefined) {
+        continue;
+      }
+
       const existing = paths[media.id];
       if (existing !== undefined && existing !== media.path) {
         throw new Error(
