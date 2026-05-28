@@ -4,7 +4,7 @@ Thanks for your interest in contributing to `@shayc/open-board-format`.
 
 ## Development
 
-Requires Node 24+.
+Requires Node 22+.
 
 ```bash
 npm install
@@ -14,7 +14,7 @@ Common commands:
 
 ```bash
 npm run lint        # eslint
-npm run typecheck   # tsc --noEmit
+npm run typecheck   # type-check only (noEmit via tsconfig)
 npm test            # vitest run
 npm run build       # tsdown → dist/
 ```

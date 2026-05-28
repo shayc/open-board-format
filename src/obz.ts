@@ -1,6 +1,6 @@
-import { parseOBF } from "./obf";
+import { buildJsonParseErrorMessage, parseOBF } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
-import { OBFManifestSchema } from "./schema";
+import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import { isZip, unzip, zip } from "./zip";
 
 /**
@@ -8,7 +8,9 @@ import { isZip, unzip, zip } from "./zip";
  *
  * @property manifest  - The package table of contents.
  * @property boards    - Board ID → validated board object.
- * @property resources - Archive path → raw binary content (images, sounds, etc.).
+ * @property resources - Archive path → raw bytes for every entry in the archive,
+ *                       including `manifest.json` and the `.obf` boards as well as
+ *                       media such as images and sounds.
  */
 export interface ParsedOBZ {
   manifest: OBFManifest;
@@ -69,12 +71,9 @@ export function parseManifest(json: string): OBFManifest {
   try {
     data = JSON.parse(json) as unknown;
   } catch (error) {
-    throw new Error(
-      `Invalid manifest: JSON parse failed${
-        (error as Error)?.message ? ` — ${(error as Error).message}` : ""
-      }`,
-      { cause: error },
-    );
+    throw new Error(buildJsonParseErrorMessage("manifest", error), {
+      cause: error,
+    });
   }
 
   const result = OBFManifestSchema.safeParse(data);
@@ -119,7 +118,7 @@ export async function createOBZ(
   const imagePaths = collectMediaPaths(boards, "images");
   const soundPaths = collectMediaPaths(boards, "sounds");
 
-  const manifest = OBFManifestSchema.parse({
+  const manifestResult = OBFManifestSchema.safeParse({
     format: "open-board-0.1",
     root: `boards/${rootBoardId}.obf`,
     paths: {
@@ -129,6 +128,14 @@ export async function createOBZ(
     },
   });
 
+  if (!manifestResult.success) {
+    throw new Error(
+      `Invalid OBZ: generated manifest failed validation — ${manifestResult.error.message}`,
+    );
+  }
+
+  const manifest = manifestResult.data;
+
   const encoder = new TextEncoder();
 
   entries.set(
@@ -137,8 +144,14 @@ export async function createOBZ(
   );
 
   for (const board of boards) {
-    const path = `boards/${board.id}.obf`;
-    entries.set(path, encoder.encode(JSON.stringify(board, null, 2)));
+    const result = OBFBoardSchema.safeParse(board);
+    if (!result.success) {
+      throw new Error(
+        `Invalid OBZ: board "${board.id}" failed validation — ${result.error.message}`,
+      );
+    }
+    const path = `boards/${result.data.id}.obf`;
+    entries.set(path, encoder.encode(JSON.stringify(result.data, null, 2)));
   }
 
   if (resources) {
@@ -148,7 +161,7 @@ export async function createOBZ(
   }
 
   const compressed = await zip(entries);
-  return new Blob([new Uint8Array(compressed)], { type: "application/zip" });
+  return new Blob([compressed], { type: "application/zip" });
 }
 
 // ---------------------------------------------------------------------------

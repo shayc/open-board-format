@@ -47,7 +47,8 @@ export const OBFFormatVersionSchema = z.string().regex(/^open-board-.+$/);
 export type OBFFormatVersion = z.infer<typeof OBFFormatVersionSchema>;
 
 /**
- * Locale code as per BCP 47 language tags, e.g., 'en', 'en-US', 'fr-CA'.
+ * Locale identifier, typically a BCP 47 language tag (e.g., 'en', 'en-US', 'fr-CA').
+ * Not strictly validated — any string is accepted.
  */
 export const OBFLocaleCodeSchema = z.string();
 export type OBFLocaleCode = z.infer<typeof OBFLocaleCodeSchema>;
@@ -158,16 +159,14 @@ export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
  * 3. `url`
  * 4. `symbol`
  */
-export const OBFImageSchema = OBFMediaSchema.and(
-  z.object({
-    /** Information about a symbol from a proprietary symbol set. */
-    symbol: OBFSymbolInfoSchema.optional(),
-    /** Width of the image in pixels. */
-    width: z.number().optional(),
-    /** Height of the image in pixels. */
-    height: z.number().optional(),
-  }),
-);
+export const OBFImageSchema = OBFMediaSchema.extend({
+  /** Information about a symbol from a proprietary symbol set. */
+  symbol: OBFSymbolInfoSchema.optional(),
+  /** Width of the image in pixels. */
+  width: z.number().optional(),
+  /** Height of the image in pixels. */
+  height: z.number().optional(),
+});
 export type OBFImage = z.infer<typeof OBFImageSchema>;
 
 /**
