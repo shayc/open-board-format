@@ -1,20 +1,12 @@
-# @shayc/open-board-format
+# `@shayc/open-board-format`
+
+A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) — the open standard for Augmentative and Alternative Communication (AAC) boards. Parse, validate, and create OBF boards and OBZ packages, all backed by [Zod](https://zod.dev/) schemas with full TypeScript types inferred.
 
 [![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
-[![license](https://img.shields.io/npm/l/@shayc/open-board-format)](LICENSE)
+[![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/npm/l/@shayc/open-board-format.svg)](LICENSE)
 
-A type-safe toolkit to parse, validate, and create Open Board Format (OBF/OBZ) files for Augmentative and Alternative Communication (AAC) applications.
-
-[Open Board Format](https://www.openboardformat.org/) is an open standard for representing AAC communication boards. It defines two file types:
-
-- **OBF** (`.obf`) — A JSON file describing a single communication board (buttons, images, sounds, grid layout, metadata).
-- **OBZ** (`.obz`) — A ZIP archive containing one or more `.obf` boards along with their associated media and a `manifest.json`.
-
-## Features
-
-- **Parse & Validate:** Parse and validate OBF boards from JSON strings, objects, or `File` handles.
-- **Create & Extract:** Serialize boards to JSON, and create or extract OBZ packages (ZIP archives with boards, images, and sounds).
-- **Zod Schemas:** Every OBF type has a corresponding [Zod](https://zod.dev/) schema for runtime validation or API contracts, with full TypeScript types inferred directly.
+OBF (`.obf`) is a JSON file describing a single communication board — buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more `.obf` boards with their media and a `manifest.json`.
 
 ## Install
 
@@ -24,21 +16,32 @@ npm install @shayc/open-board-format
 
 ## Quick start
 
-### Parse a single board (OBF)
-
 ```ts
-import { parseOBF, validateOBF, loadOBF } from "@shayc/open-board-format";
+import { parseOBF } from "@shayc/open-board-format";
 
-// Parse from a JSON string
 const board = parseOBF(jsonString);
-console.log(board.name); // "My Board"
-
-// Validate an unknown object (throws on failure)
-const validated = validateOBF(untrustedData);
-
-// Load from a browser File object
-const fromFile = await loadOBF(file);
+console.log(board.id, board.buttons.length);
 ```
+
+`parseOBF` throws on invalid input; the returned value is a fully typed `OBFBoard`. For other input shapes (already-parsed object, browser `File`, OBZ archive), see [Overview](#overview).
+
+## Overview
+
+Two file types; pick the entry point by what you have:
+
+- **OBF** is a single board (a JSON object). Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
+- **OBZ** is a package of boards plus media (a ZIP archive). Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
+
+Every OBF type ships with a matching `*Schema` Zod schema (e.g. `OBFBoardSchema`, `OBFManifestSchema`), so you can validate inline with `safeParse` or wire the schema straight into an API contract — the TypeScript types are inferred from those schemas.
+
+Validation preserves unknown fields rather than stripping them, so vendor extensions allowed by the OBF spec survive a `parseOBF` → `stringifyOBF` round trip.
+
+## Requirements
+
+- **Module format:** ESM only.
+- **Runtime:** browser or Node 22+ — works against `File`, `ArrayBuffer`, and `Blob`.
+
+## Examples
 
 ### Extract an OBZ package
 
@@ -51,7 +54,6 @@ const { manifest, boards, resources } = await loadOBZ(file);
 // Or from an ArrayBuffer (e.g. fetch response)
 const parsed = await extractOBZ(buffer);
 
-// Access boards and resources
 const homeBoard = parsed.boards.get("1");
 const imageBytes = parsed.resources.get("images/logo.png");
 ```
@@ -76,7 +78,7 @@ const resources = new Map([["images/logo.png", pngBytes]]);
 const blob = await createOBZ(boards, "board-1", resources);
 ```
 
-### Use Zod schemas directly
+### Validate with Zod directly
 
 ```ts
 import { OBFBoardSchema } from "@shayc/open-board-format";
@@ -142,18 +144,34 @@ if (result.success) {
 | `OBFLocalizedStrings` | Key-value string translations                                               |
 | `OBFStrings`          | Multi-locale string translations                                            |
 
-## Development
+## Errors
 
-```bash
-npm install       # Install dependencies
-npm test          # Run tests (vitest)
-npm run build     # Build for production (tsdown)
-npm run typecheck # Type-check without emitting
-```
+All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
+
+- `Invalid OBF:` — schema validation rejected an OBF board.
+- `Invalid OBZ:` — the package was malformed (not a ZIP, missing manifest, unreadable entry).
+- `Invalid manifest:` — `manifest.json` failed to parse or validate.
+
+When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
+
+## Security
+
+OBZ archives are untrusted input. This library does not enforce limits on entry size or count, and does not sanitize entry paths — if you write extracted resources to disk, validate paths yourself first to avoid directory traversal. For stronger guarantees against zip-bomb-style payloads, run extraction in a sandboxed context (Web Worker, isolated process).
+
+Found a security issue? Open a private advisory at [github.com/shayc/open-board-format/security/advisories/new](https://github.com/shayc/open-board-format/security/advisories/new).
+
+## Versioning
+
+Semver; see [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup (Node 22+, Vitest, the changeset workflow).
 
 ## Related
 
-- [Open Board Format specification](https://www.openboardformat.org/docs) — Official standard and format documentation
+- [Open Board Format specification](https://www.openboardformat.org/docs) — the official standard and format documentation.
+- [AAC Board AI](https://github.com/shayc/aac-board-ai) — an offline-first AAC web app built on this package, using on-device browser AI for grammar, tone, and translation ([live app](https://aacboard.app)).
 
 ## License
 
