@@ -1,18 +1,24 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "lib": ["esnext", "DOM"],
-    "moduleDetection": "force",
+    "target": "ES2025",
+    "lib": ["ES2025", "DOM"],
     "module": "preserve",
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
     "types": ["node"],
+
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+
     "strict": true,
     "noUnusedLocals": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
   },
   "include": ["src", "tests", "tsdown.config.ts"]
 }
