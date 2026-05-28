@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "../src/obf";
-import type { OBFBoard } from "../src/schema";
+import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
+import type { OBFBoard } from "./schema";
 
 const validBoard: OBFBoard = {
   format: "open-board-0.1",
