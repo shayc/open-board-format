@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 0.1.6
+
+### Patch Changes
+
+- e31c5bd: Prefix the OBZ missing-board extraction error with `Invalid OBZ:` so it matches the convention used by every other OBZ failure, letting consumers reliably detect malformed packages by message prefix.
+
 ## 0.1.5
 
 ### Patch Changes
