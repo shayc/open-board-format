@@ -222,7 +222,7 @@ function extractBoards(
 
     if (!boardBytes) {
       throw new Error(
-        `Board "${id}" declared in manifest but missing at path "${path}"`,
+        `Invalid OBZ: board "${id}" declared in manifest but missing at path "${path}"`,
       );
     }
 

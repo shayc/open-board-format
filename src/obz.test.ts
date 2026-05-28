@@ -84,7 +84,7 @@ describe("extractOBZ", () => {
     const zipBuffer = await zip(filesWithMissingBoard);
 
     await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
-      'Board "missing" declared in manifest but missing',
+      'Invalid OBZ: board "missing" declared in manifest but missing',
     );
   });
 });
