@@ -8,12 +8,15 @@ function stripBom(text: string): string {
   return text.startsWith(UTF8_BOM) ? text.slice(1) : text;
 }
 
-/** Build a descriptive parse-failure message, preserving the engine's reason when available. */
-function buildParseErrorMessage(error: unknown): string {
+/** Build a descriptive JSON parse-failure message, preserving the engine's reason when available. */
+export function buildJsonParseErrorMessage(
+  label: string,
+  error: unknown,
+): string {
   const reason = error instanceof Error ? error.message : "";
   return reason
-    ? `Invalid OBF: JSON parse failed — ${reason}`
-    : "Invalid OBF: JSON parse failed";
+    ? `Invalid ${label}: JSON parse failed — ${reason}`
+    : `Invalid ${label}: JSON parse failed`;
 }
 
 /**
@@ -35,7 +38,7 @@ export function parseOBF(json: string): OBFBoard {
   try {
     rawBoard = JSON.parse(sanitized) as unknown;
   } catch (error) {
-    throw new Error(buildParseErrorMessage(error), { cause: error });
+    throw new Error(buildJsonParseErrorMessage("OBF", error), { cause: error });
   }
 
   return validateOBF(rawBoard);

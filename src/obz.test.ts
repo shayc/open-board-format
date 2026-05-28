@@ -138,6 +138,19 @@ describe("createOBZ", () => {
     );
   });
 
+  test("throws when a supplied board fails schema validation", async () => {
+    const invalidBoard = {
+      format: "open-board-0.1",
+      id: "bad",
+      buttons: [],
+      // grid is required by OBFBoardSchema
+    } as unknown as OBFBoard;
+
+    await expect(createOBZ([invalidBoard], "bad")).rejects.toThrow(
+      /Invalid OBZ: board "bad" failed validation/,
+    );
+  });
+
   test("populates manifest.paths.images from board image entries", async () => {
     const board: OBFBoard = {
       format: "open-board-0.1",
