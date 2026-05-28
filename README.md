@@ -105,12 +105,12 @@ if (result.success) {
 
 ### OBZ (board package)
 
-| Function                                | Description                                                   |
-| --------------------------------------- | ------------------------------------------------------------- |
-| `loadOBZ(file)`                         | Load an OBZ package from a browser `File`                     |
-| `extractOBZ(archive)`                   | Extract boards, manifest, and resources from an `ArrayBuffer` |
-| `createOBZ(boards, rootId, resources?)` | Create an OBZ package as a `Blob`                             |
-| `parseManifest(json)`                   | Parse a `manifest.json` string into a validated `OBFManifest` |
+| Function                                     | Description                                                   |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| `loadOBZ(file)`                              | Load an OBZ package from a browser `File`                     |
+| `extractOBZ(archive)`                        | Extract boards, manifest, and resources from an `ArrayBuffer` |
+| `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                             |
+| `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest` |
 
 ### Utilities
 
@@ -143,6 +143,14 @@ if (result.success) {
 | `OBFLocaleCode`       | BCP 47 locale code                                                          |
 | `OBFLocalizedStrings` | Key-value string translations                                               |
 | `OBFStrings`          | Multi-locale string translations                                            |
+
+### Schemas
+
+Every type above except `ParsedOBZ` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
+
+```ts
+import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
+```
 
 ## Errors
 
