@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isZip, unzip, zip } from "../src/zip";
+import { isZip, unzip, zip } from "./zip";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

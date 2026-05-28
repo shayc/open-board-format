@@ -12,8 +12,8 @@ import {
   OBFSpecialtyActionSchema,
   OBFSpellingActionSchema,
   OBFSymbolInfoSchema,
-} from "../src/schema";
-import lotsOfStuffExample from "./examples/lots_of_stuff.json";
+} from "./schema";
+import lotsOfStuffExample from "../tests/examples/lots_of_stuff.json";
 
 describe("OBFIDSchema", () => {
   test("coerces numbers to strings", () => {

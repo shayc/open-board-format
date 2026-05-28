@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "../src/obz";
-import type { OBFBoard } from "../src/schema";
-import { zip } from "../src/zip";
+import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
+import type { OBFBoard } from "./schema";
+import { zip } from "./zip";
 
 describe("parseManifest", () => {
   test("parses valid manifest", () => {
