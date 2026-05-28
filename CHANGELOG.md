@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 0.1.5
+
+### Patch Changes
+
+- 222eda9: Rewrite the README for clarity: sharper overview that maps each entry point to its input shape, new Errors and Security sections, and a note that validation preserves unknown fields (vendor extensions survive a parse/stringify round trip). Also sort `package.json` keywords.
+
 ## 0.1.4
 
 ### Patch Changes
