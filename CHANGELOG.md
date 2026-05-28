@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 0.1.4
+
+### Patch Changes
+
+- b2fa636: Expose a `types` condition in the package `exports` map so TypeScript consumers resolve declarations for the package entry point.
+
 ## 0.1.3
 
 ### Patch Changes
