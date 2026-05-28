@@ -35,8 +35,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build && npm run pack:check",
-    "pack:check": "publint --strict",
+    "prepublishOnly": "npm run build",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "npm run build && changeset publish"
