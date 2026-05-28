@@ -159,9 +159,10 @@ describe("createOBZ", () => {
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       images: [{ id: "i1", path: "images/i1.png" }],
     };
+    const resources = new Map([["images/i1.png", new Uint8Array([1])]]);
 
     const extracted = await extractOBZ(
-      await (await createOBZ([board], "b")).arrayBuffer(),
+      await (await createOBZ([board], "b", resources)).arrayBuffer(),
     );
 
     expect(extracted.manifest.paths.images).toEqual({ i1: "images/i1.png" });
@@ -175,12 +176,69 @@ describe("createOBZ", () => {
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
     };
+    const resources = new Map([["sounds/s1.mp3", new Uint8Array([1])]]);
 
     const extracted = await extractOBZ(
-      await (await createOBZ([board], "b")).arrayBuffer(),
+      await (await createOBZ([board], "b", resources)).arrayBuffer(),
     );
 
     expect(extracted.manifest.paths.sounds).toEqual({ s1: "sounds/s1.mp3" });
+  });
+
+  test("throws when a board image path has no matching resource", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [{ id: "btn", image_id: "i1" }],
+      grid: { rows: 1, columns: 1, order: [["btn"]] },
+      images: [{ id: "i1", path: "images/i1.png" }],
+    };
+
+    await expect(createOBZ([board], "b")).rejects.toThrow(
+      /image "i1" references "images\/i1\.png" but no matching resource/,
+    );
+  });
+
+  test("throws when a board sound path has no matching resource", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [{ id: "btn", sound_id: "s1" }],
+      grid: { rows: 1, columns: 1, order: [["btn"]] },
+      sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
+    };
+
+    await expect(createOBZ([board], "b")).rejects.toThrow(
+      /sound "s1" references "sounds\/s1\.mp3" but no matching resource/,
+    );
+  });
+
+  test("throws when a resource collides with the generated manifest", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+    const resources = new Map([["manifest.json", new Uint8Array([1])]]);
+
+    await expect(createOBZ([board], "b", resources)).rejects.toThrow(
+      /resource path "manifest\.json" collides with a generated/,
+    );
+  });
+
+  test("throws when a resource collides with a generated board file", async () => {
+    const board: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+    const resources = new Map([["boards/b.obf", new Uint8Array([1])]]);
+
+    await expect(createOBZ([board], "b", resources)).rejects.toThrow(
+      /resource path "boards\/b\.obf" collides with a generated/,
+    );
   });
 
   test("omits sounds map when no sounds have paths", async () => {

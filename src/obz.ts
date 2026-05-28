@@ -97,6 +97,10 @@ export function parseManifest(json: string): OBFManifest {
  * @returns A `Blob` containing the compressed OBZ archive.
  *
  * @throws {Error} If `rootBoardId` does not match any of the supplied boards.
+ * @throws {Error} If a supplied board fails schema validation.
+ * @throws {Error} If two boards declare the same media id with conflicting paths.
+ * @throws {Error} If a board declares an image or sound `path` with no matching entry in `resources`.
+ * @throws {Error} If a `resources` entry would overwrite the generated `manifest.json` or a board file.
  */
 export async function createOBZ(
   boards: OBFBoard[],
@@ -156,9 +160,17 @@ export async function createOBZ(
 
   if (resources) {
     for (const [path, bytes] of resources) {
+      if (entries.has(path)) {
+        throw new Error(
+          `Invalid OBZ: resource path "${path}" collides with a generated board or manifest entry`,
+        );
+      }
       entries.set(path, bytes);
     }
   }
+
+  assertPathsPresent("image", imagePaths, entries);
+  assertPathsPresent("sound", soundPaths, entries);
 
   const compressed = await zip(entries);
   return new Blob([compressed], { type: "application/zip" });
@@ -198,6 +210,27 @@ function collectMediaPaths(
   }
 
   return paths;
+}
+
+/**
+ * Assert that every media path the generated manifest declares exists as an
+ * archive entry — the same contract {@link extractOBZ} assumes when reading.
+ *
+ * Only media that declared a `path` reach this check, so `url`/`data`-only
+ * media are never flagged.
+ */
+function assertPathsPresent(
+  kind: "image" | "sound",
+  paths: Record<string, string>,
+  entries: Map<string, Uint8Array | ArrayBuffer>,
+): void {
+  for (const [id, path] of Object.entries(paths)) {
+    if (!entries.has(path)) {
+      throw new Error(
+        `Invalid OBZ: ${kind} "${id}" references "${path}" but no matching resource was supplied`,
+      );
+    }
+  }
 }
 
 function extractManifest(entries: Map<string, Uint8Array>): OBFManifest {

@@ -157,7 +157,7 @@ import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
 All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
 
 - `Invalid OBF:` — schema validation rejected an OBF board.
-- `Invalid OBZ:` — the package was malformed (not a ZIP, missing manifest, unreadable entry).
+- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, or the manifest references a board file not in the archive. On write (`createOBZ`): `rootBoardId` matches no board, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
 - `Invalid manifest:` — `manifest.json` failed to parse or validate.
 
 When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
