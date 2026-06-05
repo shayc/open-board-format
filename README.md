@@ -32,6 +32,8 @@ Two file types; pick the entry point by what you have:
 - **OBF** is a single board (a JSON object). Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
 - **OBZ** is a package of boards plus media (a ZIP archive). Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
 
+If you accept a `File` and don't know which of the two it is, use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the extension yourself.
+
 Every OBF type ships with a matching `*Schema` Zod schema (e.g. `OBFBoardSchema`, `OBFManifestSchema`), so you can validate inline with `safeParse` or wire the schema straight into an API contract — the TypeScript types are inferred from those schemas.
 
 Validation preserves unknown fields rather than stripping them, so vendor extensions allowed by the OBF spec survive a `parseOBF` → `stringifyOBF` round trip.
@@ -78,6 +80,21 @@ const resources = new Map([["images/logo.png", pngBytes]]);
 const blob = await createOBZ(boards, "board-1", resources);
 ```
 
+### Load either format from one input
+
+```ts
+import { loadBoard } from "@shayc/open-board-format";
+
+// `file` came from a drag-and-drop or <input type="file"> — could be .obf or .obz
+const loaded = await loadBoard(file);
+
+if (loaded.format === "obz") {
+  const homeBoard = loaded.archive.boards.get("1");
+} else {
+  const board = loaded.board;
+}
+```
+
 ### Validate with Zod directly
 
 ```ts
@@ -112,6 +129,12 @@ if (result.success) {
 | `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                             |
 | `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest` |
 
+### Either format
+
+| Function          | Description                                                                |
+| ----------------- | -------------------------------------------------------------------------- |
+| `loadBoard(file)` | Detect OBF vs OBZ from a `File` and load it; returns a `LoadedBoard` union |
+
 ### Utilities
 
 | Function         | Description                                              |
@@ -122,31 +145,32 @@ if (result.success) {
 
 ### Types
 
-| Type                  | Description                                                                 |
-| --------------------- | --------------------------------------------------------------------------- |
-| `OBFBoard`            | A single communication board                                                |
-| `OBFGrid`             | Grid layout (rows, columns, order)                                          |
-| `OBFButton`           | A button on the board                                                       |
-| `OBFButtonAction`     | Button action (spelling or specialty)                                       |
-| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                |
-| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                           |
-| `OBFLoadBoard`        | Reference to load another board                                             |
-| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                |
-| `OBFImage`            | An image resource (extends `OBFMedia`)                                      |
-| `OBFSound`            | A sound resource (extends `OBFMedia`)                                       |
-| `OBFSymbolInfo`       | Symbol set reference                                                        |
-| `OBFManifest`         | OBZ package manifest                                                        |
-| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }` |
-| `OBFID`               | Unique identifier (string, coerced from number)                             |
-| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                              |
-| `OBFLicense`          | Licensing information                                                       |
-| `OBFLocaleCode`       | BCP 47 locale code                                                          |
-| `OBFLocalizedStrings` | Key-value string translations                                               |
-| `OBFStrings`          | Multi-locale string translations                                            |
+| Type                  | Description                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                                          |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                                    |
+| `OBFButton`           | A button on the board                                                                 |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                                 |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                          |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                     |
+| `OBFLoadBoard`        | Reference to load another board                                                       |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                          |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                                |
+| `OBFSound`            | A sound resource (extends `OBFMedia`)                                                 |
+| `OBFSymbolInfo`       | Symbol set reference                                                                  |
+| `OBFManifest`         | OBZ package manifest                                                                  |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }`           |
+| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }` |
+| `OBFID`               | Unique identifier (string, coerced from number)                                       |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                        |
+| `OBFLicense`          | Licensing information                                                                 |
+| `OBFLocaleCode`       | BCP 47 locale code                                                                    |
+| `OBFLocalizedStrings` | Key-value string translations                                                         |
+| `OBFStrings`          | Multi-locale string translations                                                      |
 
 ### Schemas
 
-Every type above except `ParsedOBZ` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
+Every type above except `ParsedOBZ` and `LoadedBoard` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
 
 ```ts
 import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
