@@ -46,4 +46,8 @@ export { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 
 export type { ParsedOBZ } from "./obz";
 
+export { loadBoard } from "./load-board";
+
+export type { LoadedBoard } from "./load-board";
+
 export { isZip, unzip, zip } from "./zip";
