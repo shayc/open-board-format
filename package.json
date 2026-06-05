@@ -1,6 +1,6 @@
 {
   "name": "@shayc/open-board-format",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "A TypeScript toolkit for Open Board Format — the open standard for Augmentative and Alternative Communication (AAC) boards.",
   "license": "MIT",
   "author": "Shay Cojocaru <shayc@outlook.com>",
