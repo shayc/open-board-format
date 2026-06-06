@@ -36,7 +36,6 @@ describe("loadBoard", () => {
 
   test("detects format by content, not by file extension", async () => {
     const obzBlob = await createOBZ([validBoard], "test-board");
-    // OBZ bytes behind a misleading `.obf` name — sniffing wins over the name.
     const file = new File([obzBlob], "actually-a-package.obf");
 
     const loaded = await loadBoard(file);
@@ -50,8 +49,6 @@ describe("loadBoard", () => {
 
     await loadBoard(file);
 
-    // The whole point of the API: sniff and parse from a single read,
-    // never sniff-then-re-read.
     expect(arrayBuffer).toHaveBeenCalledTimes(1);
   });
 
@@ -62,8 +59,7 @@ describe("loadBoard", () => {
   });
 
   test("surfaces the OBZ extractor's error for a ZIP missing its manifest", async () => {
-    // A genuine ZIP (so it routes to the OBZ branch) whose entries omit
-    // manifest.json — the extractOBZ error must propagate unchanged.
+    // A real ZIP so isZip passes and we exercise the OBZ branch, not the OBF one.
     const zipped = await zip(
       new Map([["boards/x.obf", new TextEncoder().encode("{}")]]),
     );
