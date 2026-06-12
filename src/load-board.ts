@@ -1,3 +1,7 @@
+/**
+ * Format-agnostic loading of `.obf` boards and `.obz` packages.
+ */
+
 import { parseOBF } from "./obf";
 import { extractOBZ } from "./obz";
 import type { ParsedOBZ } from "./obz";
@@ -27,11 +31,11 @@ export type LoadedBoard =
  * Detect whether the input is a single OBF board or an OBZ package and load it
  * accordingly.
  *
- * The input is read once and its leading bytes are sniffed for the ZIP magic
- * prefix: a ZIP is treated as an `.obz` package, anything else as an `.obf`
- * board. This lets consumers accept either format from a single drag-and-drop,
- * file picker, or fetch response without inspecting the file extension or
- * re-deriving the OBF-vs-OBZ distinction themselves.
+ * Input that begins with the ZIP magic prefix is treated as an `.obz` package;
+ * anything else is parsed as an `.obf` board. The input is read once, so
+ * consumers can accept either format from a single drag-and-drop, file picker,
+ * or fetch response without inspecting the file extension or re-deriving the
+ * OBF-vs-OBZ distinction themselves.
  *
  * @param input - A `File` handle or `ArrayBuffer` holding `.obf` or `.obz` content.
  * @returns A discriminated union tagged by `format`.

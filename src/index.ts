@@ -1,3 +1,8 @@
+/**
+ * Public API of `@shayc/open-board-format`.
+ */
+
+// Zod schemas and inferred types for the OBF data model
 export type {
   OBFBoard,
   OBFButton,
@@ -40,14 +45,18 @@ export {
   OBFSymbolInfoSchema,
 } from "./schema";
 
+// Single-board (.obf) parsing, validation, and serialization
 export { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
 
+// Board-package (.obz) creation and extraction
 export { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 
 export type { ParsedOBZ } from "./obz";
 
+// Format-agnostic loading of .obf or .obz input
 export { loadBoard } from "./load-board";
 
 export type { LoadedBoard } from "./load-board";
 
+// ZIP helpers
 export { isZip, unzip, zip } from "./zip";
