@@ -13,9 +13,9 @@ import { isZip } from "./zip";
  * ```ts
  * const loaded = await loadBoard(file);
  * if (loaded.format === "obz") {
- *   loaded.archive.boards; // ParsedOBZ
+ *   loaded.archive.rootBoard; // home board of the ParsedOBZ archive
  * } else {
- *   loaded.board;          // OBFBoard
+ *   loaded.board;             // OBFBoard
  * }
  * ```
  */

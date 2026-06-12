@@ -31,7 +31,7 @@ export interface ParsedOBZ {
  * @param file - A `File` handle pointing to an `.obz` archive.
  * @returns The parsed manifest, boards, root board, and binary resources.
  *
- * @throws {Error} If the file is not a valid ZIP or the manifest is missing.
+ * @throws {Error} Same failures as {@link extractOBZ}, which this delegates to.
  */
 export async function loadOBZ(file: File): Promise<ParsedOBZ> {
   const archive = await file.arrayBuffer();
