@@ -97,6 +97,7 @@ export function parseManifest(json: string): OBFManifest {
  * @returns A `Blob` containing the compressed OBZ archive.
  *
  * @throws {Error} If `rootBoardId` does not match any of the supplied boards.
+ * @throws {Error} If two supplied boards share the same id.
  * @throws {Error} If a supplied board fails schema validation.
  * @throws {Error} If two boards declare the same media id with conflicting paths.
  * @throws {Error} If a board declares an image or sound `path` with no matching entry in `resources`.
@@ -111,6 +112,16 @@ export async function createOBZ(
     throw new Error(
       `Invalid OBZ: rootBoardId "${rootBoardId}" does not match any supplied board`,
     );
+  }
+
+  const seenBoardIds = new Set<string>();
+  for (const board of boards) {
+    if (seenBoardIds.has(board.id)) {
+      throw new Error(
+        `Invalid OBZ: duplicate board id "${board.id}" — board ids must be unique within a package`,
+      );
+    }
+    seenBoardIds.add(board.id);
   }
 
   const entries = new Map<string, Uint8Array | ArrayBuffer>();

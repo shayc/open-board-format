@@ -24,23 +24,26 @@ export type LoadedBoard =
   | { format: "obf"; board: OBFBoard };
 
 /**
- * Detect whether a `File` is a single OBF board or an OBZ package and load it
+ * Detect whether the input is a single OBF board or an OBZ package and load it
  * accordingly.
  *
- * The file is read once and its leading bytes are sniffed for the ZIP magic
+ * The input is read once and its leading bytes are sniffed for the ZIP magic
  * prefix: a ZIP is treated as an `.obz` package, anything else as an `.obf`
- * board. This lets consumers accept either format from a single drag-and-drop
- * or file picker without inspecting the file extension or re-deriving the
- * OBF-vs-OBZ distinction themselves.
+ * board. This lets consumers accept either format from a single drag-and-drop,
+ * file picker, or fetch response without inspecting the file extension or
+ * re-deriving the OBF-vs-OBZ distinction themselves.
  *
- * @param file - A `File` handle pointing to an `.obf` or `.obz` file.
+ * @param input - A `File` handle or `ArrayBuffer` holding `.obf` or `.obz` content.
  * @returns A discriminated union tagged by `format`.
  *
  * @throws {Error} If an OBZ archive is malformed or its manifest is missing,
  *   or if an OBF board is malformed or fails schema validation.
  */
-export async function loadBoard(file: File): Promise<LoadedBoard> {
-  const buffer = await file.arrayBuffer();
+export async function loadBoard(
+  input: File | ArrayBuffer,
+): Promise<LoadedBoard> {
+  const buffer =
+    input instanceof ArrayBuffer ? input : await input.arrayBuffer();
 
   if (isZip(buffer)) {
     return { format: "obz", archive: await extractOBZ(buffer) };
