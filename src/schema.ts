@@ -287,19 +287,24 @@ export type OBFBoard = z.infer<typeof OBFBoardSchema>;
 /**
  * Table of contents for an `.obz` package, mapping resource IDs to their archive paths.
  */
-export const OBFManifestSchema = z.looseObject({
-  /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */
-  format: OBFFormatVersionSchema,
-  /** Path to the root board within the .obz package. */
-  root: z.string(),
-  /** Mapping of IDs to paths for boards, images, and sounds. */
-  paths: z.looseObject({
-    /** Mapping of board IDs to their file paths. */
-    boards: z.record(z.string(), z.string()),
-    /** Mapping of image IDs to their file paths. */
-    images: z.record(z.string(), z.string()),
-    /** Mapping of sound IDs to their file paths. */
-    sounds: z.record(z.string(), z.string()).optional(),
-  }),
-});
+export const OBFManifestSchema = z
+  .looseObject({
+    /** Format version of the Open Board Format, e.g., 'open-board-0.1'. */
+    format: OBFFormatVersionSchema,
+    /** Path to the root board within the .obz package. */
+    root: z.string(),
+    /** Mapping of IDs to paths for boards, images, and sounds. */
+    paths: z.looseObject({
+      /** Mapping of board IDs to their file paths. */
+      boards: z.record(z.string(), z.string()),
+      /** Mapping of image IDs to their file paths. */
+      images: z.record(z.string(), z.string()),
+      /** Mapping of sound IDs to their file paths. */
+      sounds: z.record(z.string(), z.string()).optional(),
+    }),
+  })
+  .refine((m) => Object.values(m.paths.boards).includes(m.root), {
+    message: "root must be listed in paths.boards",
+    path: ["root"],
+  });
 export type OBFManifest = z.infer<typeof OBFManifestSchema>;

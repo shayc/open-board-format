@@ -34,6 +34,27 @@ describe("loadBoard", () => {
     expect(loaded.archive.boards.get("test-board")).toEqual(validBoard);
   });
 
+  test("loads a single OBF board from an ArrayBuffer", async () => {
+    const bytes = new TextEncoder().encode(JSON.stringify(validBoard));
+    const buffer = bytes.buffer.slice(0, bytes.byteLength);
+
+    const loaded = await loadBoard(buffer);
+
+    expect(loaded).toEqual({ format: "obf", board: validBoard });
+  });
+
+  test("loads an OBZ package from an ArrayBuffer", async () => {
+    const obzBlob = await createOBZ([validBoard], "test-board");
+
+    const loaded = await loadBoard(await obzBlob.arrayBuffer());
+
+    expect(loaded.format).toBe("obz");
+    if (loaded.format !== "obz") {
+      throw new Error("expected obz");
+    }
+    expect(loaded.archive.boards.get("test-board")).toEqual(validBoard);
+  });
+
   test("detects format by content, not by file extension", async () => {
     const obzBlob = await createOBZ([validBoard], "test-board");
     const file = new File([obzBlob], "actually-a-package.obf");

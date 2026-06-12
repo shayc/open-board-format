@@ -27,6 +27,16 @@ describe("parseManifest", () => {
 
     expect(() => parseManifest(invalidManifest)).toThrow(/Invalid manifest/);
   });
+
+  test("throws when root is not listed in paths.boards", () => {
+    const rootNotListed = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/ghost.obf",
+      paths: { boards: { test: "boards/test.obf" }, images: {} },
+    });
+
+    expect(() => parseManifest(rootNotListed)).toThrow(/Invalid manifest/);
+  });
 });
 
 describe("extractOBZ", () => {
@@ -135,6 +145,19 @@ describe("createOBZ", () => {
 
     await expect(createOBZ([board], "wrong-id")).rejects.toThrow(
       /rootBoardId "wrong-id" does not match/,
+    );
+  });
+
+  test("throws when two boards share the same id", async () => {
+    const makeBoard = (): OBFBoard => ({
+      format: "open-board-0.1",
+      id: "dup",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    });
+
+    await expect(createOBZ([makeBoard(), makeBoard()], "dup")).rejects.toThrow(
+      /duplicate board id "dup"/,
     );
   });
 

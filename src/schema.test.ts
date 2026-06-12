@@ -557,6 +557,16 @@ describe("OBFManifestSchema", () => {
     expect(OBFManifestSchema.safeParse(missingImages).success).toBe(false);
   });
 
+  test("rejects root not listed in paths.boards", () => {
+    const rootNotListed = {
+      format: "open-board-0.1",
+      root: "boards/other.obf",
+      paths: { boards: { main: "boards/main.obf" }, images: {} },
+    };
+
+    expect(OBFManifestSchema.safeParse(rootNotListed).success).toBe(false);
+  });
+
   test("accepts manifest without sounds (optional)", () => {
     const noSounds = {
       format: "open-board-0.1",

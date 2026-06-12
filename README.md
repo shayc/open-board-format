@@ -32,7 +32,7 @@ Two file types; pick the entry point by what you have:
 - **OBF** is a single board (a JSON object). Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
 - **OBZ** is a package of boards plus media (a ZIP archive). Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
 
-If you accept a `File` and don't know which of the two it is, use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the extension yourself.
+If you accept a `File` (or raw `ArrayBuffer`) and don't know which of the two it is, use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the extension yourself.
 
 Every OBF type ships with a matching `*Schema` Zod schema (e.g. `OBFBoardSchema`, `OBFManifestSchema`), so you can validate inline with `safeParse` or wire the schema straight into an API contract — the TypeScript types are inferred from those schemas.
 
@@ -131,9 +131,9 @@ if (result.success) {
 
 ### Either format
 
-| Function          | Description                                                                |
-| ----------------- | -------------------------------------------------------------------------- |
-| `loadBoard(file)` | Detect OBF vs OBZ from a `File` and load it; returns a `LoadedBoard` union |
+| Function           | Description                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `loadBoard(input)` | Detect OBF vs OBZ from a `File` or `ArrayBuffer` and load it; returns a `LoadedBoard` union |
 
 ### Utilities
 
@@ -181,8 +181,8 @@ import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
 All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
 
 - `Invalid OBF:` — schema validation rejected an OBF board.
-- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, or the manifest references a board file not in the archive. On write (`createOBZ`): `rootBoardId` matches no board, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
-- `Invalid manifest:` — `manifest.json` failed to parse or validate.
+- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, or the manifest references a board file not in the archive. On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same id, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
+- `Invalid manifest:` — `manifest.json` failed to parse or validate, including a `root` that is not listed in `paths.boards`.
 
 When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
 
