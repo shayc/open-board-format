@@ -97,6 +97,73 @@ describe("extractOBZ", () => {
       'Invalid OBZ: board "missing" declared in manifest but missing',
     );
   });
+
+  test("resolves rootBoard, including when root is not the first board", async () => {
+    const boardA: OBFBoard = {
+      format: "open-board-0.1",
+      id: "a",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+    const boardB: OBFBoard = {
+      format: "open-board-0.1",
+      id: "b",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    };
+
+    const obzBlob = await createOBZ([boardA, boardB], "b");
+    const result = await extractOBZ(await obzBlob.arrayBuffer());
+
+    expect(result.rootBoard.id).toBe("b");
+    expect(result.rootBoard).toBe(result.boards.get("b"));
+  });
+
+  test("throws when a board's id does not match its manifest key", async () => {
+    const manifest = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/home.obf",
+      paths: { boards: { "1": "boards/home.obf" }, images: {} },
+    });
+    const board = JSON.stringify({
+      format: "open-board-0.1",
+      id: "home",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    });
+    const files = new Map([
+      ["manifest.json", new TextEncoder().encode(manifest)],
+      ["boards/home.obf", new TextEncoder().encode(board)],
+    ]);
+    const zipBuffer = await zip(files);
+
+    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
+      'Invalid OBZ: board at "boards/home.obf" has id "home" but the manifest declares it as "1"',
+    );
+  });
+
+  test("throws when two manifest keys map to the same board file", async () => {
+    const manifest = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/a.obf",
+      paths: { boards: { a: "boards/a.obf", b: "boards/a.obf" }, images: {} },
+    });
+    const board = JSON.stringify({
+      format: "open-board-0.1",
+      id: "a",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    });
+    const files = new Map([
+      ["manifest.json", new TextEncoder().encode(manifest)],
+      ["boards/a.obf", new TextEncoder().encode(board)],
+    ]);
+    const zipBuffer = await zip(files);
+
+    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
+      'Invalid OBZ: board at "boards/a.obf" has id "a" but the manifest declares it as "b"',
+    );
+  });
 });
 
 describe("loadOBZ", () => {
@@ -115,6 +182,7 @@ describe("loadOBZ", () => {
 
     expect(result.manifest.root).toBe("boards/test.obf");
     expect(result.boards.get("test")).toBeDefined();
+    expect(result.rootBoard.id).toBe("test");
   });
 });
 
@@ -316,6 +384,7 @@ describe("Integration: createOBZ and extractOBZ", () => {
     const extracted = await extractOBZ(obzBuffer);
 
     expect(extracted.manifest.root).toBe("boards/board-1.obf");
+    expect(extracted.rootBoard).toBe(extracted.boards.get("board-1"));
     expect(extracted.boards.get("board-1")).toMatchObject({
       id: "board-1",
       buttons: [{ id: "btn-1", label: "Test" }],

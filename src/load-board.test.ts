@@ -32,6 +32,9 @@ describe("loadBoard", () => {
     }
     expect(loaded.archive.manifest.root).toBe("boards/test-board.obf");
     expect(loaded.archive.boards.get("test-board")).toEqual(validBoard);
+    expect(loaded.archive.rootBoard).toBe(
+      loaded.archive.boards.get("test-board"),
+    );
   });
 
   test("loads a single OBF board from an ArrayBuffer", async () => {
