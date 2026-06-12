@@ -8,6 +8,9 @@ import { isZip, unzip, zip } from "./zip";
  *
  * @property manifest  - The package table of contents.
  * @property boards    - Board ID → validated board object.
+ * @property rootBoard - The package's entry-point board — the one `manifest.root`
+ *                       points at, already resolved. Same object as
+ *                       `boards.get(rootBoard.id)`.
  * @property resources - Archive path → raw bytes for every entry in the archive,
  *                       including `manifest.json` and the `.obf` boards as well as
  *                       media such as images and sounds.
@@ -15,6 +18,7 @@ import { isZip, unzip, zip } from "./zip";
 export interface ParsedOBZ {
   manifest: OBFManifest;
   boards: Map<string, OBFBoard>;
+  rootBoard: OBFBoard;
   resources: Map<string, Uint8Array>;
 }
 
@@ -25,7 +29,7 @@ export interface ParsedOBZ {
  * read the file to an `ArrayBuffer` and pass it to {@link extractOBZ} instead.
  *
  * @param file - A `File` handle pointing to an `.obz` archive.
- * @returns The parsed manifest, boards, and binary resources.
+ * @returns The parsed manifest, boards, root board, and binary resources.
  *
  * @throws {Error} If the file is not a valid ZIP or the manifest is missing.
  */
@@ -39,9 +43,12 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
  *
  * @param archive - The OBZ archive as an `ArrayBuffer`.
  * @returns The parsed manifest, a map of board IDs to validated boards,
- *          and a map of file paths to their binary content.
+ *          the resolved root board, and a map of file paths to their
+ *          binary content.
  *
- * @throws {Error} If the archive is not a valid ZIP or the manifest is missing.
+ * @throws {Error} If the archive is not a valid ZIP, the manifest is missing,
+ *   a board declared in the manifest is missing or fails validation, or a
+ *   board's `id` differs from the ID the manifest declares for it.
  */
 export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
   if (!isZip(archive)) {
@@ -51,9 +58,9 @@ export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
   const entries = await unzip(archive);
 
   const manifest = extractManifest(entries);
-  const boards = extractBoards(manifest, entries);
+  const { boards, rootBoard } = extractBoards(manifest, entries);
 
-  return { manifest, boards, resources: entries };
+  return { manifest, boards, rootBoard, resources: entries };
 }
 
 /**
@@ -258,8 +265,9 @@ function extractManifest(entries: Map<string, Uint8Array>): OBFManifest {
 function extractBoards(
   manifest: OBFManifest,
   entries: Map<string, Uint8Array>,
-): Map<string, OBFBoard> {
+): { boards: Map<string, OBFBoard>; rootBoard: OBFBoard } {
   const boards = new Map<string, OBFBoard>();
+  let rootBoard: OBFBoard | undefined;
 
   for (const [id, path] of Object.entries(manifest.paths.boards)) {
     const boardBytes = entries.get(path);
@@ -271,8 +279,28 @@ function extractBoards(
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
-    boards.set(id, parseOBF(boardJson));
+    const board = parseOBF(boardJson);
+
+    if (board.id !== id) {
+      throw new Error(
+        `Invalid OBZ: board at "${path}" has id "${board.id}" but the manifest declares it as "${id}"`,
+      );
+    }
+
+    boards.set(id, board);
+
+    if (path === manifest.root) {
+      rootBoard = board;
+    }
   }
 
-  return boards;
+  if (!rootBoard) {
+    // Unreachable for validated manifests: the schema requires `root` to be
+    // listed in `paths.boards`. Kept as a guard for hand-built manifests.
+    throw new Error(
+      `Invalid OBZ: root board "${manifest.root}" not found in paths.boards`,
+    );
+  }
+
+  return { boards, rootBoard };
 }

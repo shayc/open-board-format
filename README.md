@@ -31,7 +31,7 @@ const loaded = await loadBoard(file);
 if (loaded.format === "obf") {
   console.log(loaded.board.buttons.length);
 } else {
-  console.log(loaded.archive.boards.size);
+  console.log(loaded.archive.rootBoard.buttons.length);
 }
 ```
 
@@ -51,21 +51,13 @@ if (loaded.format === "obf") {
 import { loadOBZ, extractOBZ } from "@shayc/open-board-format";
 
 // From a File (e.g. drag-and-drop)
-const { manifest, boards, resources } = await loadOBZ(file);
+const { rootBoard, boards, resources } = await loadOBZ(file);
 
 // Or from an ArrayBuffer (e.g. fetch response)
 const parsed = await extractOBZ(buffer);
 ```
 
-`boards` is keyed by board ID and `resources` by archive path. The manifest is the package's table of contents: `manifest.root` is the archive path of the home board, and `manifest.paths.boards` maps board IDs to paths. To get the home board:
-
-```ts
-// Validation guarantees `root` is listed in `paths.boards`, so the lookup always succeeds.
-const [rootId] = Object.entries(manifest.paths.boards).find(
-  ([, path]) => path === manifest.root,
-)!;
-const homeBoard = boards.get(rootId);
-```
+`rootBoard` is the package's home board — the one `manifest.root` points at, already resolved. `boards` is keyed by board ID and `resources` by archive path; the `manifest` is also returned if you need the raw table of contents.
 
 Resources are raw bytes. To display an image in the browser:
 
@@ -150,28 +142,28 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### Types
 
-| Type                  | Description                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `OBFBoard`            | A single communication board                                                          |
-| `OBFGrid`             | Grid layout (rows, columns, order)                                                    |
-| `OBFButton`           | A button on the board                                                                 |
-| `OBFButtonAction`     | Button action (spelling or specialty)                                                 |
-| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                          |
-| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                     |
-| `OBFLoadBoard`        | Reference to load another board                                                       |
-| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                          |
-| `OBFImage`            | An image resource (extends `OBFMedia`)                                                |
-| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                |
-| `OBFSymbolInfo`       | Symbol set reference                                                                  |
-| `OBFManifest`         | OBZ package manifest                                                                  |
-| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }`           |
-| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }` |
-| `OBFID`               | Unique identifier (string, coerced from number)                                       |
-| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                        |
-| `OBFLicense`          | Licensing information                                                                 |
-| `OBFLocaleCode`       | BCP 47 locale code                                                                    |
-| `OBFLocalizedStrings` | Key-value string translations                                                         |
-| `OBFStrings`          | Multi-locale string translations                                                      |
+| Type                  | Description                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                                           |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                                     |
+| `OBFButton`           | A button on the board                                                                  |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                                  |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                           |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                      |
+| `OBFLoadBoard`        | Reference to load another board                                                        |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                           |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                                 |
+| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                 |
+| `OBFSymbolInfo`       | Symbol set reference                                                                   |
+| `OBFManifest`         | OBZ package manifest                                                                   |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, rootBoard, resources }` |
+| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`  |
+| `OBFID`               | Unique identifier (string, coerced from number)                                        |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                         |
+| `OBFLicense`          | Licensing information                                                                  |
+| `OBFLocaleCode`       | BCP 47 locale code                                                                     |
+| `OBFLocalizedStrings` | Key-value string translations                                                          |
+| `OBFStrings`          | Multi-locale string translations                                                       |
 
 ### Schemas
 
@@ -186,7 +178,7 @@ import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
 All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
 
 - `Invalid OBF:` — schema validation rejected an OBF board.
-- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, or the manifest references a board file not in the archive. On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same id, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
+- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, the manifest references a board file not in the archive, or a board's `id` differs from the ID the manifest declares for it. On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same id, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
 - `Invalid manifest:` — `manifest.json` failed to parse or validate, including a `root` that is not listed in `paths.boards`.
 - `Failed to unzip:` — the input passed the ZIP signature check but could not be decompressed (truncated or corrupt archive).
 
