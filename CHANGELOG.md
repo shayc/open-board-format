@@ -1,5 +1,18 @@
 # @shayc/open-board-format
 
+## 0.3.0
+
+### Minor Changes
+
+- 8836a93: `loadBoard` now accepts an `ArrayBuffer` in addition to a `File`, so Node and fetch-based consumers can use format detection without constructing a `File`.
+
+### Patch Changes
+
+- 8836a93: Harden OBZ validation:
+
+  - `createOBZ` now throws on duplicate board ids instead of silently keeping only the last board with a given id.
+  - Manifest validation (`OBFManifestSchema`, `parseManifest`, `extractOBZ`) now rejects manifests whose `root` is not listed in `paths.boards`, instead of extracting an archive whose root board can't be resolved.
+
 ## 0.2.0
 
 ### Minor Changes
