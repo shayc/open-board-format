@@ -10,7 +10,7 @@ A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) �
 - **Browser and Node.js 22+** — pure ESM, works against `File` and `ArrayBuffer`.
 - **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
 - **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
-- **Small footprint** — two runtime dependencies ([Zod](https://zod.dev/) and [fflate](https://github.com/101arrowz/fflate)), tree-shakeable, no side effects.
+- **Small footprint** — two runtime dependencies (Zod and [fflate](https://github.com/101arrowz/fflate)), tree-shakeable, no side effects.
 
 ## Install
 
@@ -119,12 +119,12 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### OBZ (board package)
 
-| Function                                     | Description                                                   |
-| -------------------------------------------- | ------------------------------------------------------------- |
-| `loadOBZ(file)`                              | Load an OBZ package from a browser `File`                     |
-| `extractOBZ(archive)`                        | Extract boards, manifest, and resources from an `ArrayBuffer` |
-| `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                             |
-| `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest` |
+| Function                                     | Description                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `loadOBZ(file)`                              | Load an OBZ package from a browser `File`                                 |
+| `extractOBZ(archive)`                        | Extract boards, manifest, root board, and resources from an `ArrayBuffer` |
+| `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                                         |
+| `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest`             |
 
 ### Format detection
 
@@ -178,9 +178,11 @@ import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
 All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
 
 - `Invalid OBF:` — schema validation rejected an OBF board.
-- `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, the manifest references a board file not in the archive, or a board's `id` differs from the ID the manifest declares for it. On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same id, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
+- `Invalid OBZ:` — the package was rejected.
+  - On read: not a ZIP, missing manifest, the manifest references a board file not in the archive, or a board's `id` differs from the ID the manifest declares for it.
+  - On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same `id`, a board fails validation, two boards map the same media `id` to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
 - `Invalid manifest:` — `manifest.json` failed to parse or validate, including a `root` that is not listed in `paths.boards`.
-- `Failed to unzip:` — the input passed the ZIP signature check but could not be decompressed (truncated or corrupt archive).
+- `Failed to unzip:` / `Failed to zip:` — the archive could not be decompressed (truncated or corrupt despite a valid ZIP signature) or compressed.
 
 When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
 
