@@ -1,3 +1,7 @@
+/**
+ * Parsing, validation, and serialization for single `.obf` board files.
+ */
+
 import type { OBFBoard } from "./schema";
 import { OBFBoardSchema } from "./schema";
 
@@ -8,7 +12,12 @@ function stripBom(text: string): string {
   return text.startsWith(UTF8_BOM) ? text.slice(1) : text;
 }
 
-/** Build a descriptive JSON parse-failure message, preserving the engine's reason when available. */
+/**
+ * Build a descriptive JSON parse-failure message, preserving the engine's
+ * reason when available.
+ *
+ * @internal Exported for reuse by the OBZ module — not part of the public API.
+ */
 export function buildJsonParseErrorMessage(
   label: string,
   error: unknown,
@@ -28,7 +37,7 @@ export function buildJsonParseErrorMessage(
  * @param json - The JSON string to parse.
  * @returns The validated board object.
  *
- * @throws {Error} If the JSON is malformed or does not conform to the OBF schema.
+ * @throws {Error} If the JSON is malformed or fails schema validation.
  */
 export function parseOBF(json: string): OBFBoard {
   const sanitized = stripBom(json);
@@ -66,7 +75,7 @@ export async function loadOBF(file: File): Promise<OBFBoard> {
  * @param data - The value to validate.
  * @returns The validated board object.
  *
- * @throws {Error} If the value does not conform to the OBF schema.
+ * @throws {Error} If the value fails schema validation.
  */
 export function validateOBF(data: unknown): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);

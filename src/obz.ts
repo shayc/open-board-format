@@ -1,3 +1,7 @@
+/**
+ * Creation and extraction of `.obz` board packages.
+ */
+
 import { buildJsonParseErrorMessage, parseOBF } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
@@ -5,20 +9,22 @@ import { isZip, unzip, zip } from "./zip";
 
 /**
  * Fully extracted contents of an `.obz` archive.
- *
- * @property manifest  - The package table of contents.
- * @property boards    - Board ID → validated board object.
- * @property rootBoard - The package's entry-point board — the one `manifest.root`
- *                       points at, already resolved. Same object as
- *                       `boards.get(rootBoard.id)`.
- * @property resources - Archive path → raw bytes for every entry in the archive,
- *                       including `manifest.json` and the `.obf` boards as well as
- *                       media such as images and sounds.
  */
 export interface ParsedOBZ {
+  /** The package's table of contents. */
   manifest: OBFManifest;
+  /** Validated board objects keyed by board ID. */
   boards: Map<string, OBFBoard>;
+  /**
+   * The package's entry-point board — the one `manifest.root` points at,
+   * already resolved. Same object as `boards.get(rootBoard.id)`.
+   */
   rootBoard: OBFBoard;
+  /**
+   * Raw bytes for every entry in the archive, keyed by archive path —
+   * including `manifest.json` and the `.obf` boards as well as media
+   * such as images and sounds.
+   */
   resources: Map<string, Uint8Array>;
 }
 
@@ -104,9 +110,9 @@ export function parseManifest(json: string): OBFManifest {
  * @returns A `Blob` containing the compressed OBZ archive.
  *
  * @throws {Error} If `rootBoardId` does not match any of the supplied boards.
- * @throws {Error} If two supplied boards share the same id.
+ * @throws {Error} If two supplied boards share the same ID.
  * @throws {Error} If a supplied board fails schema validation.
- * @throws {Error} If two boards declare the same media id with conflicting paths.
+ * @throws {Error} If two boards declare the same media ID with conflicting paths.
  * @throws {Error} If a board declares an image or sound `path` with no matching entry in `resources`.
  * @throws {Error} If a `resources` entry would overwrite the generated `manifest.json` or a board file.
  */
@@ -202,7 +208,7 @@ export async function createOBZ(
  * Walk every board's media collection and produce the `{ id -> path }` map
  * the spec calls "redundant but still required" for the OBZ manifest.
  *
- * Throws when two boards declare the same media id with conflicting paths
+ * Throws when two boards declare the same media ID with conflicting paths
  * — a silent OBZ that points at a non-existent file is worse than a clear error.
  */
 function collectMediaPaths(

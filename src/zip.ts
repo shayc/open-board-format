@@ -1,3 +1,7 @@
+/**
+ * Minimal ZIP helpers over fflate: signature sniffing, unzip, and zip.
+ */
+
 import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
 
 /**
@@ -9,7 +13,7 @@ import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
  */
 const ZIP_MAGIC = [0x50, 0x4b] as const;
 
-/** Balanced speed-vs-size deflate level used by fflate (1–9 scale). */
+/** Balanced speed-vs-size deflate level, on fflate's 0–9 scale (0 = store). */
 const COMPRESSION_LEVEL = 6;
 
 /**
@@ -18,7 +22,7 @@ const COMPRESSION_LEVEL = 6;
  * @param archive - The ZIP archive as an `ArrayBuffer`.
  * @returns A map of file paths to their decompressed content.
  *
- * @throws {Error} If decompression fails.
+ * @throws {Error} If the archive is corrupt or cannot be decompressed.
  */
 export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
@@ -47,7 +51,7 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
  * @param entries - A map of file paths to their content bytes.
  * @returns The compressed archive as a `Uint8Array`.
  *
- * @throws {Error} If compression fails.
+ * @throws {Error} If fflate fails to compress an entry.
  */
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,

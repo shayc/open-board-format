@@ -210,7 +210,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup (Node 22+, Vitest, 
 
 ## Related
 
-- [Open Board Format specification](https://www.openboardformat.org/docs) — the official standard and format documentation.
+- [Open Board Format specification](https://www.openboardformat.org/docs) — the official standard and format documentation. A 1:1 mirror is kept at [docs/external/open-board-format.md](docs/external/open-board-format.md) for offline reference.
 - [AAC Board AI](https://github.com/shayc/aac-board-ai) — an offline-first AAC web app built on this package, using on-device browser AI for grammar, tone, and translation ([live app](https://aacboard.app)).
 
 ## License
