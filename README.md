@@ -1,12 +1,16 @@
 # `@shayc/open-board-format`
 
-A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) — the open standard for Augmentative and Alternative Communication (AAC) boards. Parse, validate, and create OBF boards and OBZ packages, all backed by [Zod](https://zod.dev/) schemas with full TypeScript types inferred.
-
 [![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
 [![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/npm/l/@shayc/open-board-format.svg)](LICENSE)
 
-OBF (`.obf`) is a JSON file describing a single communication board — buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more `.obf` boards with their media and a `manifest.json`.
+A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) — the open standard for Augmentative and Alternative Communication (AAC) boards. OBF (`.obf`) is a JSON file describing a single communication board: buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more boards with their media and a `manifest.json`. This package parses, validates, and creates both.
+
+- **Typed end to end** — every type is inferred from a [Zod](https://zod.dev/) schema, and every schema is exported for `safeParse` or composing into your own contracts.
+- **Browser and Node.js 22+** — pure ESM, works against `File` and `ArrayBuffer`.
+- **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
+- **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
+- **Small footprint** — two runtime dependencies ([Zod](https://zod.dev/) and [fflate](https://github.com/101arrowz/fflate)), tree-shakeable, no side effects.
 
 ## Install
 
@@ -14,38 +18,34 @@ OBF (`.obf`) is a JSON file describing a single communication board — buttons,
 npm install @shayc/open-board-format
 ```
 
+ESM only — CommonJS (`require`) is not supported.
+
 ## Quick start
 
 ```ts
-import { parseOBF } from "@shayc/open-board-format";
+import { loadBoard } from "@shayc/open-board-format";
 
-const board = parseOBF(jsonString);
-console.log(board.id, board.buttons.length);
+// `file` came from drag-and-drop or <input type="file"> — could be .obf or .obz
+const loaded = await loadBoard(file);
+
+if (loaded.format === "obf") {
+  console.log(loaded.board.buttons.length);
+} else {
+  console.log(loaded.archive.boards.size);
+}
 ```
 
-`parseOBF` throws on invalid input; the returned value is a fully typed `OBFBoard`. For other input shapes (already-parsed object, browser `File`, OBZ archive), see [Overview](#overview).
+`loadBoard` accepts a `File` or `ArrayBuffer` and throws on invalid input (see [Errors](#errors)). Already holding a JSON string? `parseOBF(json)` returns a validated `OBFBoard` directly.
 
-## Overview
+## Usage
 
-Two file types; pick the entry point by what you have:
+### Which function do I need?
 
-- **OBF** is a single board (a JSON object). Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
-- **OBZ** is a package of boards plus media (a ZIP archive). Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
+- **You have a single board (OBF).** Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
+- **You have a package of boards plus media (OBZ).** Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
+- **You don't know which you have.** Use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the file extension yourself.
 
-If you accept a `File` (or raw `ArrayBuffer`) and don't know which of the two it is, use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the extension yourself.
-
-Every OBF type ships with a matching `*Schema` Zod schema (e.g. `OBFBoardSchema`, `OBFManifestSchema`), so you can validate inline with `safeParse` or wire the schema straight into an API contract — the TypeScript types are inferred from those schemas.
-
-Validation preserves unknown fields rather than stripping them, so vendor extensions allowed by the OBF spec survive a `parseOBF` → `stringifyOBF` round trip.
-
-## Requirements
-
-- **Module format:** ESM only.
-- **Runtime:** browser or Node 22+ — works against `File`, `ArrayBuffer`, and `Blob`.
-
-## Examples
-
-### Extract an OBZ package
+### Read an OBZ package
 
 ```ts
 import { loadOBZ, extractOBZ } from "@shayc/open-board-format";
@@ -55,45 +55,48 @@ const { manifest, boards, resources } = await loadOBZ(file);
 
 // Or from an ArrayBuffer (e.g. fetch response)
 const parsed = await extractOBZ(buffer);
+```
 
-const homeBoard = parsed.boards.get("1");
-const imageBytes = parsed.resources.get("images/logo.png");
+`boards` is keyed by board ID and `resources` by archive path. The manifest is the package's table of contents: `manifest.root` is the archive path of the home board, and `manifest.paths.boards` maps board IDs to paths. To get the home board:
+
+```ts
+// Validation guarantees `root` is listed in `paths.boards`, so the lookup always succeeds.
+const [rootId] = Object.entries(manifest.paths.boards).find(
+  ([, path]) => path === manifest.root,
+)!;
+const homeBoard = boards.get(rootId);
+```
+
+Resources are raw bytes. To display an image in the browser:
+
+```ts
+const bytes = resources.get("images/hello.png")!;
+const url = URL.createObjectURL(new Blob([bytes]));
 ```
 
 ### Create an OBZ package
+
+Buttons reference media by ID (`image_id`, `sound_id`); the board's `images`/`sounds` entries carry the archive `path`; the resources map supplies the bytes for each path. Every `path` a board declares must have a matching resource entry, or `createOBZ` throws.
 
 ```ts
 import { createOBZ } from "@shayc/open-board-format";
 import type { OBFBoard } from "@shayc/open-board-format";
 
-const boards: OBFBoard[] = [
-  {
-    format: "open-board-0.1",
-    id: "board-1",
-    buttons: [{ id: "btn-1", label: "Hello" }],
-    grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-  },
-];
+const board: OBFBoard = {
+  format: "open-board-0.1",
+  id: "board-1",
+  buttons: [{ id: "btn-1", label: "Hello", image_id: "img-1" }],
+  grid: { rows: 1, columns: 1, order: [["btn-1"]] },
+  images: [{ id: "img-1", path: "images/hello.png" }],
+};
 
 const pngBytes = new Uint8Array(/* ... */);
-const resources = new Map([["images/logo.png", pngBytes]]);
-const blob = await createOBZ(boards, "board-1", resources);
+const resources = new Map([["images/hello.png", pngBytes]]);
+
+const blob = await createOBZ([board], "board-1", resources);
 ```
 
-### Load either format from one input
-
-```ts
-import { loadBoard } from "@shayc/open-board-format";
-
-// `file` came from a drag-and-drop or <input type="file"> — could be .obf or .obz
-const loaded = await loadBoard(file);
-
-if (loaded.format === "obz") {
-  const homeBoard = loaded.archive.boards.get("1");
-} else {
-  const board = loaded.board;
-}
-```
+The `manifest.json` is generated for you — boards are written to `boards/<id>.obf`, and `rootBoardId` (the second argument) selects the home board.
 
 ### Validate with Zod directly
 
@@ -110,6 +113,8 @@ if (result.success) {
 ```
 
 ## API
+
+One naming convention covers the whole surface: `parse*` takes a JSON string, `validate*` takes an already-parsed object, `load*` takes a browser `File` (`loadBoard` also accepts an `ArrayBuffer`), `stringify*` returns a JSON string — and `extractOBZ`/`createOBZ` operate on whole archives.
 
 ### OBF (single board)
 
@@ -129,7 +134,7 @@ if (result.success) {
 | `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                             |
 | `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest` |
 
-### Either format
+### Format detection
 
 | Function           | Description                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------------- |
@@ -156,7 +161,7 @@ if (result.success) {
 | `OBFLoadBoard`        | Reference to load another board                                                       |
 | `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                          |
 | `OBFImage`            | An image resource (extends `OBFMedia`)                                                |
-| `OBFSound`            | A sound resource (extends `OBFMedia`)                                                 |
+| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                |
 | `OBFSymbolInfo`       | Symbol set reference                                                                  |
 | `OBFManifest`         | OBZ package manifest                                                                  |
 | `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, resources }`           |
@@ -183,6 +188,7 @@ All failures throw plain `Error`. The message identifies what failed, typically 
 - `Invalid OBF:` — schema validation rejected an OBF board.
 - `Invalid OBZ:` — the package was rejected. On read: not a ZIP, missing manifest, or the manifest references a board file not in the archive. On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same id, a board fails validation, two boards map the same media id to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
 - `Invalid manifest:` — `manifest.json` failed to parse or validate, including a `root` that is not listed in `paths.boards`.
+- `Failed to unzip:` — the input passed the ZIP signature check but could not be decompressed (truncated or corrupt archive).
 
 When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
 
@@ -192,9 +198,17 @@ OBZ archives are untrusted input. This library does not enforce limits on entry 
 
 Found a security issue? Open a private advisory at [github.com/shayc/open-board-format/security/advisories/new](https://github.com/shayc/open-board-format/security/advisories/new).
 
+## Scope
+
+What this library deliberately does not do:
+
+- **No network I/O** — media referenced by `url` or `data_url` is not fetched; resolving external media is up to you.
+- **No rendering** — it parses and validates data; drawing boards and playing sounds belong to your app.
+- **No extraction limits or path sanitization** — see [Security](#security) before writing archive contents to disk.
+
 ## Versioning
 
-Semver; see [CHANGELOG.md](CHANGELOG.md).
+Semver. Pre-1.0: minor releases may contain breaking changes — see [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
