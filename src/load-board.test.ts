@@ -1,16 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
 import { loadBoard } from "./load-board";
 import { createOBZ } from "./obz";
-import type { OBFBoard } from "./schema";
-import { expectOBFErrorAsync, readFixtureArrayBuffer } from "./test-utils";
+import {
+  expectOBFErrorAsync,
+  makeBoard,
+  readFixtureArrayBuffer,
+} from "./test-utils";
 import { zip } from "./zip";
 
-const validBoard: OBFBoard = {
-  format: "open-board-0.1",
+const validBoard = makeBoard({
   id: "test-board",
   buttons: [{ id: "btn-1", label: "Hello" }],
   grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-};
+});
 
 describe("loadBoard", () => {
   test("loads a single OBF board from a File", async () => {

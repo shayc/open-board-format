@@ -4,6 +4,7 @@ import type { OBFBoard } from "./schema";
 import {
   expectOBFError,
   expectOBFErrorAsync,
+  makeBoard,
   readFixtureArrayBuffer,
 } from "./test-utils";
 import { zip } from "./zip";
@@ -50,14 +51,13 @@ describe("parseManifest", () => {
 
 describe("extractOBZ", () => {
   test("extracts valid OBZ archive", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
+    const helloBoard = makeBoard({
       id: "test",
       buttons: [{ id: "btn-1", label: "Hello" }],
       grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-    };
+    });
 
-    const obzBlob = await createOBZ([board], "test");
+    const obzBlob = await createOBZ([helloBoard], "test");
     const result = await extractOBZ(await obzBlob.arrayBuffer());
 
     expect(result.manifest.root).toBe("boards/test.obf");
@@ -113,20 +113,10 @@ describe("extractOBZ", () => {
   });
 
   test("resolves rootBoard, including when root is not the first board", async () => {
-    const boardA: OBFBoard = {
-      format: "open-board-0.1",
-      id: "a",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
-    const boardB: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
-
-    const obzBlob = await createOBZ([boardA, boardB], "b");
+    const obzBlob = await createOBZ(
+      [makeBoard({ id: "a" }), makeBoard({ id: "b" })],
+      "b",
+    );
     const result = await extractOBZ(await obzBlob.arrayBuffer());
 
     expect(result.rootBoard.id).toBe("b");
@@ -192,14 +182,7 @@ describe("extractOBZ", () => {
 
 describe("loadOBZ", () => {
   test("loads OBZ package from File object", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "test",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
-
-    const obzBlob = await createOBZ([board], "test");
+    const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
     const file = new File([obzBlob], "test.obz", { type: "application/zip" });
 
     const result = await loadOBZ(file);
@@ -212,44 +195,32 @@ describe("loadOBZ", () => {
 
 describe("createOBZ", () => {
   test("includes resources in archive", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "board-1",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
     const imageData = new Uint8Array([1, 2, 3, 4]);
     const resources = new Map([["images/test.png", imageData]]);
 
-    const obzBlob = await createOBZ([board], "board-1", resources);
+    const obzBlob = await createOBZ(
+      [makeBoard({ id: "board-1" })],
+      "board-1",
+      resources,
+    );
     const extracted = await extractOBZ(await obzBlob.arrayBuffer());
 
     expect(extracted.resources.get("images/test.png")).toEqual(imageData);
   });
 
   test("throws when rootBoardId does not match any supplied board", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "actual-board",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
-
     expect(
-      await expectOBFErrorAsync(createOBZ([board], "wrong-id")),
+      await expectOBFErrorAsync(
+        createOBZ([makeBoard({ id: "actual-board" })], "wrong-id"),
+      ),
     ).toMatchObject({ code: "unknown-root", rootBoardId: "wrong-id" });
   });
 
   test("throws when two boards share the same id", async () => {
-    const makeBoard = (): OBFBoard => ({
-      format: "open-board-0.1",
-      id: "dup",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    });
-
     expect(
-      await expectOBFErrorAsync(createOBZ([makeBoard(), makeBoard()], "dup")),
+      await expectOBFErrorAsync(
+        createOBZ([makeBoard({ id: "dup" }), makeBoard({ id: "dup" })], "dup"),
+      ),
     ).toMatchObject({ code: "duplicate-board", boardId: "dup" });
   });
 
@@ -267,49 +238,45 @@ describe("createOBZ", () => {
   });
 
   test("populates manifest.paths.images from board image entries", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
+    const withImage = makeBoard({
       buttons: [{ id: "btn", image_id: "i1" }],
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       images: [{ id: "i1", path: "images/i1.png" }],
-    };
+    });
     const resources = new Map([["images/i1.png", new Uint8Array([1])]]);
 
     const extracted = await extractOBZ(
-      await (await createOBZ([board], "b", resources)).arrayBuffer(),
+      await (await createOBZ([withImage], "b", resources)).arrayBuffer(),
     );
 
     expect(extracted.manifest.paths.images).toEqual({ i1: "images/i1.png" });
   });
 
   test("populates manifest.paths.sounds from board sound entries", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
+    const withSound = makeBoard({
       buttons: [{ id: "btn", sound_id: "s1" }],
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
-    };
+    });
     const resources = new Map([["sounds/s1.mp3", new Uint8Array([1])]]);
 
     const extracted = await extractOBZ(
-      await (await createOBZ([board], "b", resources)).arrayBuffer(),
+      await (await createOBZ([withSound], "b", resources)).arrayBuffer(),
     );
 
     expect(extracted.manifest.paths.sounds).toEqual({ s1: "sounds/s1.mp3" });
   });
 
   test("throws when a board image path has no matching resource", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
+    const withImage = makeBoard({
       buttons: [{ id: "btn", image_id: "i1" }],
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       images: [{ id: "i1", path: "images/i1.png" }],
-    };
+    });
 
-    expect(await expectOBFErrorAsync(createOBZ([board], "b"))).toMatchObject({
+    expect(
+      await expectOBFErrorAsync(createOBZ([withImage], "b")),
+    ).toMatchObject({
       code: "missing-resource",
       kind: "image",
       mediaId: "i1",
@@ -318,15 +285,15 @@ describe("createOBZ", () => {
   });
 
   test("throws when a board sound path has no matching resource", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
+    const withSound = makeBoard({
       buttons: [{ id: "btn", sound_id: "s1" }],
       grid: { rows: 1, columns: 1, order: [["btn"]] },
       sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
-    };
+    });
 
-    expect(await expectOBFErrorAsync(createOBZ([board], "b"))).toMatchObject({
+    expect(
+      await expectOBFErrorAsync(createOBZ([withSound], "b")),
+    ).toMatchObject({
       code: "missing-resource",
       kind: "sound",
       mediaId: "s1",
@@ -335,43 +302,24 @@ describe("createOBZ", () => {
   });
 
   test("throws when a resource collides with the generated manifest", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
     const resources = new Map([["manifest.json", new Uint8Array([1])]]);
 
     expect(
-      await expectOBFErrorAsync(createOBZ([board], "b", resources)),
+      await expectOBFErrorAsync(createOBZ([makeBoard()], "b", resources)),
     ).toMatchObject({ code: "path-collision", path: "manifest.json" });
   });
 
   test("throws when a resource collides with a generated board file", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
     const resources = new Map([["boards/b.obf", new Uint8Array([1])]]);
 
     expect(
-      await expectOBFErrorAsync(createOBZ([board], "b", resources)),
+      await expectOBFErrorAsync(createOBZ([makeBoard()], "b", resources)),
     ).toMatchObject({ code: "path-collision", path: "boards/b.obf" });
   });
 
   test("omits sounds map when no sounds have paths", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
-      id: "b",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
-    };
-
     const extracted = await extractOBZ(
-      await (await createOBZ([board], "b")).arrayBuffer(),
+      await (await createOBZ([makeBoard()], "b")).arrayBuffer(),
     );
 
     expect(extracted.manifest.paths.sounds).toBeUndefined();
@@ -379,20 +327,14 @@ describe("createOBZ", () => {
   });
 
   test("throws when two boards declare the same image id with conflicting paths", async () => {
-    const board1: OBFBoard = {
-      format: "open-board-0.1",
+    const board1 = makeBoard({
       id: "b1",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
       images: [{ id: "shared", path: "images/a.png" }],
-    };
-    const board2: OBFBoard = {
-      format: "open-board-0.1",
+    });
+    const board2 = makeBoard({
       id: "b2",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[null]] },
       images: [{ id: "shared", path: "images/b.png" }],
-    };
+    });
 
     expect(
       await expectOBFErrorAsync(createOBZ([board1, board2], "b1")),
@@ -407,14 +349,13 @@ describe("createOBZ", () => {
 
 describe("Integration: createOBZ and extractOBZ", () => {
   test("round-trip preserves boards", async () => {
-    const board: OBFBoard = {
-      format: "open-board-0.1",
+    const original = makeBoard({
       id: "board-1",
       buttons: [{ id: "btn-1", label: "Test" }],
       grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-    };
+    });
 
-    const obzBlob = await createOBZ([board], "board-1");
+    const obzBlob = await createOBZ([original], "board-1");
     const obzBuffer = await obzBlob.arrayBuffer();
     const extracted = await extractOBZ(obzBuffer);
 
@@ -427,20 +368,18 @@ describe("Integration: createOBZ and extractOBZ", () => {
   });
 
   test("round-trip handles multiple boards", async () => {
-    const board1: OBFBoard = {
-      format: "open-board-0.1",
+    const board1 = makeBoard({
       id: "board-1",
       buttons: [
         { id: "btn-1", label: "Go to 2", load_board: { id: "board-2" } },
       ],
       grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-    };
-    const board2: OBFBoard = {
-      format: "open-board-0.1",
+    });
+    const board2 = makeBoard({
       id: "board-2",
       buttons: [{ id: "btn-2", label: "Back" }],
       grid: { rows: 1, columns: 1, order: [["btn-2"]] },
-    };
+    });
 
     const obzBlob = await createOBZ([board1, board2], "board-1");
     const extracted = await extractOBZ(await obzBlob.arrayBuffer());
@@ -456,8 +395,6 @@ describe("Integration: createOBZ and extractOBZ", () => {
   });
 });
 
-// Unlike the synthetic round-trips above, this loads a real archive from
-// another tool, covering properties createOBZ output can never have.
 describe("Integration: Real-world OBZ package", () => {
   const FIXTURE = "lots-of-stuff.obz";
 

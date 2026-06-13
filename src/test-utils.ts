@@ -1,9 +1,19 @@
 import { readFileSync } from "node:fs";
 import { expect } from "vitest";
-import { OBFError } from "./errors";
 import type { OBFErrorInfo } from "./errors";
+import { OBFError } from "./errors";
+import type { OBFBoard } from "./schema";
 
 const EXAMPLES_DIR = new URL("../tests/examples/", import.meta.url);
+
+/** Build a minimal valid {@link OBFBoard}, with `overrides` merged on top. */
+export const makeBoard = (overrides: Partial<OBFBoard> = {}): OBFBoard => ({
+  format: "open-board-0.1",
+  id: "b",
+  buttons: [],
+  grid: { rows: 1, columns: 1, order: [[null]] },
+  ...overrides,
+});
 
 /** Read a file from `tests/examples/` as UTF-8 text. */
 export function readFixtureText(name: string): string {
