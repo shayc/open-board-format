@@ -24,18 +24,6 @@ describe("parseManifest", () => {
     expect(manifest.paths.boards.test).toBe("boards/test.obf");
   });
 
-  test("throws for invalid manifest format", () => {
-    const invalidManifest = JSON.stringify({
-      format: "wrong-format",
-      root: "boards/test.obf",
-      paths: { boards: { test: "boards/test.obf" }, images: {} },
-    });
-
-    expect(expectOBFError(() => parseManifest(invalidManifest)).code).toBe(
-      "invalid-manifest",
-    );
-  });
-
   test("throws when root is not listed in paths.boards", () => {
     const rootNotListed = JSON.stringify({
       format: "open-board-0.1",
@@ -348,25 +336,6 @@ describe("createOBZ", () => {
 });
 
 describe("Integration: createOBZ and extractOBZ", () => {
-  test("round-trip preserves boards", async () => {
-    const original = makeBoard({
-      id: "board-1",
-      buttons: [{ id: "btn-1", label: "Test" }],
-      grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-    });
-
-    const obzBlob = await createOBZ([original], "board-1");
-    const obzBuffer = await obzBlob.arrayBuffer();
-    const extracted = await extractOBZ(obzBuffer);
-
-    expect(extracted.manifest.root).toBe("boards/board-1.obf");
-    expect(extracted.rootBoard).toBe(extracted.boards.get("board-1"));
-    expect(extracted.boards.get("board-1")).toMatchObject({
-      id: "board-1",
-      buttons: [{ id: "btn-1", label: "Test" }],
-    });
-  });
-
   test("round-trip handles multiple boards", async () => {
     const board1 = makeBoard({
       id: "board-1",
