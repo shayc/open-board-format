@@ -1,7 +1,19 @@
 import { describe, expect, test } from "vitest";
+import { OBFError } from "./errors";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
 import { zip } from "./zip";
+
+/** Run `fn`, assert it threw an `OBFError`, and return its `info` to inspect. */
+function caught(fn: () => unknown): OBFError["info"] {
+  try {
+    fn();
+  } catch (error) {
+    expect(error).toBeInstanceOf(OBFError);
+    return (error as OBFError).info;
+  }
+  throw new Error("expected an OBFError to be thrown");
+}
 
 describe("parseManifest", () => {
   test("parses valid manifest", () => {
@@ -25,7 +37,9 @@ describe("parseManifest", () => {
       paths: { boards: { test: "boards/test.obf" }, images: {} },
     });
 
-    expect(() => parseManifest(invalidManifest)).toThrow(/Invalid manifest/);
+    expect(caught(() => parseManifest(invalidManifest)).code).toBe(
+      "invalid-manifest",
+    );
   });
 
   test("throws when root is not listed in paths.boards", () => {
@@ -35,7 +49,9 @@ describe("parseManifest", () => {
       paths: { boards: { test: "boards/test.obf" }, images: {} },
     });
 
-    expect(() => parseManifest(rootNotListed)).toThrow(/Invalid manifest/);
+    expect(caught(() => parseManifest(rootNotListed)).code).toBe(
+      "invalid-manifest",
+    );
   });
 });
 
@@ -93,9 +109,15 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(filesWithMissingBoard);
 
-    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
-      'Invalid OBZ: board "missing" declared in manifest but missing',
-    );
+    await expect(
+      extractOBZ(zipBuffer.buffer as ArrayBuffer),
+    ).rejects.toMatchObject({
+      info: {
+        code: "missing-board",
+        boardId: "missing",
+        path: "boards/missing.obf",
+      },
+    });
   });
 
   test("resolves rootBoard, including when root is not the first board", async () => {
@@ -237,9 +259,9 @@ describe("createOBZ", () => {
       // grid is required by OBFBoardSchema
     } as unknown as OBFBoard;
 
-    await expect(createOBZ([invalidBoard], "bad")).rejects.toThrow(
-      /Invalid OBZ: board "bad" failed validation/,
-    );
+    await expect(createOBZ([invalidBoard], "bad")).rejects.toMatchObject({
+      info: { code: "invalid-board", boardId: "bad" },
+    });
   });
 
   test("populates manifest.paths.images from board image entries", async () => {
@@ -364,9 +386,14 @@ describe("createOBZ", () => {
       images: [{ id: "shared", path: "images/b.png" }],
     };
 
-    await expect(createOBZ([board1, board2], "b1")).rejects.toThrow(
-      /images id "shared" maps to conflicting paths/,
-    );
+    await expect(createOBZ([board1, board2], "b1")).rejects.toMatchObject({
+      info: {
+        code: "conflicting-paths",
+        kind: "image",
+        mediaId: "shared",
+        paths: ["images/a.png", "images/b.png"],
+      },
+    });
   });
 });
 

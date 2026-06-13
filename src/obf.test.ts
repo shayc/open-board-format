@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { OBFError } from "./errors";
 import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
 import type { OBFBoard } from "./schema";
 
@@ -19,12 +20,22 @@ describe("parseOBF", () => {
     expect(result).toEqual(validBoard);
   });
 
-  test("throws descriptive error for invalid JSON", () => {
+  test("throws a not-json OBFError for invalid JSON, preserving the cause", () => {
     const malformedJson = '{ "format": "open-board-0.1", }';
 
-    expect(() => parseOBF(malformedJson)).toThrow(
-      /Invalid OBF: JSON parse failed/,
-    );
+    let thrown: unknown;
+    try {
+      parseOBF(malformedJson);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OBFError);
+    expect((thrown as OBFError).info).toMatchObject({
+      code: "not-json",
+      source: "board",
+    });
+    expect((thrown as OBFError).cause).toBeInstanceOf(Error);
   });
 
   test("handles UTF-8 BOM prefix", () => {

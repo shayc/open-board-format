@@ -175,16 +175,51 @@ import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
 
 ## Errors
 
-All failures throw plain `Error`. The message identifies what failed, typically with one of these prefixes:
+Every failure throws an `OBFError`. Branch on `error.info.code` — a discriminated union where each `code` carries exactly the fields relevant to that failure. Don't match on `error.message`; the message is human-readable and may change between releases.
 
-- `Invalid OBF:` — schema validation rejected an OBF board.
-- `Invalid OBZ:` — the package was rejected.
-  - On read: not a ZIP, missing manifest, the manifest references a board file not in the archive, or a board's `id` differs from the ID the manifest declares for it.
-  - On write (`createOBZ`): `rootBoardId` matches no board, two boards share the same `id`, a board fails validation, two boards map the same media `id` to conflicting paths, a declared image/sound `path` has no matching resource, or a resource would overwrite a generated entry.
-- `Invalid manifest:` — `manifest.json` failed to parse or validate, including a `root` that is not listed in `paths.boards`.
-- `Failed to unzip:` / `Failed to zip:` — the archive could not be decompressed (truncated or corrupt despite a valid ZIP signature) or compressed.
+```ts
+import { loadBoard, OBFError } from "@shayc/open-board-format";
 
-When the root cause is a `JSON.parse` failure, the original error is preserved as `error.cause`. For finer-grained validation, drop one level down and use the Zod schemas directly with `safeParse` — the `issues` array tells you exactly which field failed.
+try {
+  await loadBoard(file);
+} catch (error) {
+  if (!(error instanceof OBFError)) throw error;
+
+  switch (error.info.code) {
+    case "missing-resource":
+      // `kind`, `mediaId`, and `path` are all typed and present here
+      console.warn(`Missing ${error.info.kind} at ${error.info.path}`);
+      break;
+    case "invalid-board":
+      // `issues` is the Zod issue list — which field failed and why
+      console.error(error.info.issues);
+      break;
+    default:
+      console.error(error.message);
+  }
+}
+```
+
+The `code` values, grouped by what they describe:
+
+| Group       | `info.code`         | Key fields                       |
+| ----------- | ------------------- | -------------------------------- |
+| Decoding    | `not-json`          | `source`, `cause`                |
+|             | `not-zip`           | —                                |
+|             | `unreadable-zip`    | `cause`                          |
+| Validation  | `invalid-board`     | `issues`, `cause`, `boardId?`    |
+|             | `invalid-manifest`  | `issues`, `cause`                |
+| Read (OBZ)  | `missing-manifest`  | —                                |
+|             | `missing-board`     | `boardId`, `path`                |
+|             | `board-id-mismatch` | `path`, `declaredId`, `actualId` |
+| Write (OBZ) | `unknown-root`      | `rootBoardId`                    |
+|             | `duplicate-board`   | `boardId`                        |
+|             | `missing-resource`  | `kind`, `mediaId`, `path`        |
+|             | `conflicting-paths` | `kind`, `mediaId`, `paths`       |
+|             | `path-collision`    | `path`                           |
+|             | `zip-failed`        | `cause`                          |
+
+`OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling. Validation failures carry the underlying `ZodError` as `error.cause`, so you can call `z.treeifyError(error.cause)` for nested, UI-friendly output; for `not-json` / `*-zip` failures, `cause` is the underlying parser or fflate error. The `issues` array is Zod's issue type, re-exported as `OBFIssue`.
 
 ## Security
 

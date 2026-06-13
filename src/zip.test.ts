@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { OBFError } from "./errors";
 import { isZip, unzip, zip } from "./zip";
 
 const encoder = new TextEncoder();
@@ -41,8 +42,6 @@ describe("isZip", () => {
   });
 
   test("returns true for PK followed by arbitrary bytes (false positive accepted)", () => {
-    // Documents that isZip only checks the first 2 bytes;
-    // it does not validate the full ZIP structure.
     const pkFollowedByJunk = new Uint8Array([0x50, 0x4b, 0xff, 0xff, 0x00])
       .buffer;
 
@@ -85,12 +84,15 @@ describe("zip", () => {
 });
 
 describe("unzip", () => {
-  test("rejects with 'Failed to unzip:' error for invalid data", async () => {
+  test("rejects with an unreadable-zip OBFError for invalid data", async () => {
     const invalidData = toArrayBuffer(
       new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]),
     );
 
-    await expect(unzip(invalidData)).rejects.toThrow(/^Failed to unzip:/);
+    await expect(unzip(invalidData)).rejects.toBeInstanceOf(OBFError);
+    await expect(unzip(invalidData)).rejects.toMatchObject({
+      info: { code: "unreadable-zip" },
+    });
   });
 });
 

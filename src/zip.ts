@@ -3,6 +3,7 @@
  */
 
 import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
+import { OBFError } from "./errors";
 
 /**
  * First two bytes of every ZIP archive — the ASCII letters `PK`,
@@ -22,7 +23,8 @@ const COMPRESSION_LEVEL = 6;
  * @param archive - The ZIP archive as an `ArrayBuffer`.
  * @returns A map of file paths to their decompressed content.
  *
- * @throws {Error} If the archive is corrupt or cannot be decompressed.
+ * @throws {@link OBFError} with `info.code` `"unreadable-zip"` if the archive is
+ *   corrupt or cannot be decompressed.
  */
 export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
@@ -30,7 +32,7 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
 
     fflateUnzip(compressed, (error, entries) => {
       if (error) {
-        reject(new Error(`Failed to unzip: ${error.message ?? String(error)}`));
+        reject(new OBFError({ code: "unreadable-zip", cause: error }));
         return;
       }
 
@@ -51,7 +53,8 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
  * @param entries - A map of file paths to their content bytes.
  * @returns The compressed archive as a `Uint8Array`.
  *
- * @throws {Error} If fflate fails to compress an entry.
+ * @throws {@link OBFError} with `info.code` `"zip-failed"` if fflate fails to
+ *   compress an entry.
  */
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,
@@ -66,7 +69,7 @@ export function zip(
 
     fflateZip(pathToBytes, { level: COMPRESSION_LEVEL }, (error, result) => {
       if (error) {
-        reject(new Error(`Failed to zip: ${error.message ?? String(error)}`));
+        reject(new OBFError({ code: "zip-failed", cause: error }));
         return;
       }
 
