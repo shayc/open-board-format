@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 0.6.1
+
+### Patch Changes
+
+- 19ad2c6: Condense multi-line JSDoc comments on schema type aliases to single lines and tidy doc wording in `obz.ts` and `test-utils.ts`. Documentation only — no API or behavior changes.
+
 ## 0.6.0
 
 ### Minor Changes
