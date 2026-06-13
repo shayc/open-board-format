@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { OBFError } from "./errors";
+import { expectOBFErrorAsync } from "./test-utils";
 import { isZip, unzip, zip } from "./zip";
 
 const encoder = new TextEncoder();
@@ -89,10 +89,9 @@ describe("unzip", () => {
       new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]),
     );
 
-    await expect(unzip(invalidData)).rejects.toBeInstanceOf(OBFError);
-    await expect(unzip(invalidData)).rejects.toMatchObject({
-      info: { code: "unreadable-zip" },
-    });
+    expect((await expectOBFErrorAsync(unzip(invalidData))).code).toBe(
+      "unreadable-zip",
+    );
   });
 });
 

@@ -1,19 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { OBFError } from "./errors";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
+import { expectOBFError, expectOBFErrorAsync } from "./test-utils";
 import { zip } from "./zip";
-
-/** Run `fn`, assert it threw an `OBFError`, and return its `info` to inspect. */
-function caught(fn: () => unknown): OBFError["info"] {
-  try {
-    fn();
-  } catch (error) {
-    expect(error).toBeInstanceOf(OBFError);
-    return (error as OBFError).info;
-  }
-  throw new Error("expected an OBFError to be thrown");
-}
 
 describe("parseManifest", () => {
   test("parses valid manifest", () => {
@@ -37,7 +26,7 @@ describe("parseManifest", () => {
       paths: { boards: { test: "boards/test.obf" }, images: {} },
     });
 
-    expect(caught(() => parseManifest(invalidManifest)).code).toBe(
+    expect(expectOBFError(() => parseManifest(invalidManifest)).code).toBe(
       "invalid-manifest",
     );
   });
@@ -49,7 +38,7 @@ describe("parseManifest", () => {
       paths: { boards: { test: "boards/test.obf" }, images: {} },
     });
 
-    expect(caught(() => parseManifest(rootNotListed)).code).toBe(
+    expect(expectOBFError(() => parseManifest(rootNotListed)).code).toBe(
       "invalid-manifest",
     );
   });
@@ -82,8 +71,8 @@ describe("extractOBZ", () => {
   test("throws for non-ZIP input", async () => {
     const notZip = new ArrayBuffer(10);
 
-    await expect(extractOBZ(notZip)).rejects.toThrow(
-      "Invalid OBZ: not a ZIP file",
+    expect((await expectOBFErrorAsync(extractOBZ(notZip))).code).toBe(
+      "not-zip",
     );
   });
 
@@ -93,9 +82,10 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(filesWithoutManifest);
 
-    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
-      "Invalid OBZ: missing manifest.json",
-    );
+    expect(
+      (await expectOBFErrorAsync(extractOBZ(zipBuffer.buffer as ArrayBuffer)))
+        .code,
+    ).toBe("missing-manifest");
   });
 
   test("throws when manifest references a missing board file", async () => {
@@ -109,14 +99,12 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(filesWithMissingBoard);
 
-    await expect(
-      extractOBZ(zipBuffer.buffer as ArrayBuffer),
-    ).rejects.toMatchObject({
-      info: {
-        code: "missing-board",
-        boardId: "missing",
-        path: "boards/missing.obf",
-      },
+    expect(
+      await expectOBFErrorAsync(extractOBZ(zipBuffer.buffer as ArrayBuffer)),
+    ).toMatchObject({
+      code: "missing-board",
+      boardId: "missing",
+      path: "boards/missing.obf",
     });
   });
 
@@ -159,9 +147,14 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(files);
 
-    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
-      'Invalid OBZ: board at "boards/home.obf" has id "home" but the manifest declares it as "1"',
-    );
+    expect(
+      await expectOBFErrorAsync(extractOBZ(zipBuffer.buffer as ArrayBuffer)),
+    ).toMatchObject({
+      code: "board-id-mismatch",
+      path: "boards/home.obf",
+      declaredId: "1",
+      actualId: "home",
+    });
   });
 
   test("throws when two manifest keys map to the same board file", async () => {
@@ -182,9 +175,14 @@ describe("extractOBZ", () => {
     ]);
     const zipBuffer = await zip(files);
 
-    await expect(extractOBZ(zipBuffer.buffer as ArrayBuffer)).rejects.toThrow(
-      'Invalid OBZ: board at "boards/a.obf" has id "a" but the manifest declares it as "b"',
-    );
+    expect(
+      await expectOBFErrorAsync(extractOBZ(zipBuffer.buffer as ArrayBuffer)),
+    ).toMatchObject({
+      code: "board-id-mismatch",
+      path: "boards/a.obf",
+      declaredId: "b",
+      actualId: "a",
+    });
   });
 });
 
@@ -233,9 +231,9 @@ describe("createOBZ", () => {
       grid: { rows: 1, columns: 1, order: [[null]] },
     };
 
-    await expect(createOBZ([board], "wrong-id")).rejects.toThrow(
-      /rootBoardId "wrong-id" does not match/,
-    );
+    expect(
+      await expectOBFErrorAsync(createOBZ([board], "wrong-id")),
+    ).toMatchObject({ code: "unknown-root", rootBoardId: "wrong-id" });
   });
 
   test("throws when two boards share the same id", async () => {
@@ -246,9 +244,9 @@ describe("createOBZ", () => {
       grid: { rows: 1, columns: 1, order: [[null]] },
     });
 
-    await expect(createOBZ([makeBoard(), makeBoard()], "dup")).rejects.toThrow(
-      /duplicate board id "dup"/,
-    );
+    expect(
+      await expectOBFErrorAsync(createOBZ([makeBoard(), makeBoard()], "dup")),
+    ).toMatchObject({ code: "duplicate-board", boardId: "dup" });
   });
 
   test("throws when a supplied board fails schema validation", async () => {
@@ -259,9 +257,9 @@ describe("createOBZ", () => {
       // grid is required by OBFBoardSchema
     } as unknown as OBFBoard;
 
-    await expect(createOBZ([invalidBoard], "bad")).rejects.toMatchObject({
-      info: { code: "invalid-board", boardId: "bad" },
-    });
+    expect(
+      await expectOBFErrorAsync(createOBZ([invalidBoard], "bad")),
+    ).toMatchObject({ code: "invalid-board", boardId: "bad" });
   });
 
   test("populates manifest.paths.images from board image entries", async () => {
@@ -307,9 +305,12 @@ describe("createOBZ", () => {
       images: [{ id: "i1", path: "images/i1.png" }],
     };
 
-    await expect(createOBZ([board], "b")).rejects.toThrow(
-      /image "i1" references "images\/i1\.png" but no matching resource/,
-    );
+    expect(await expectOBFErrorAsync(createOBZ([board], "b"))).toMatchObject({
+      code: "missing-resource",
+      kind: "image",
+      mediaId: "i1",
+      path: "images/i1.png",
+    });
   });
 
   test("throws when a board sound path has no matching resource", async () => {
@@ -321,9 +322,12 @@ describe("createOBZ", () => {
       sounds: [{ id: "s1", path: "sounds/s1.mp3" }],
     };
 
-    await expect(createOBZ([board], "b")).rejects.toThrow(
-      /sound "s1" references "sounds\/s1\.mp3" but no matching resource/,
-    );
+    expect(await expectOBFErrorAsync(createOBZ([board], "b"))).toMatchObject({
+      code: "missing-resource",
+      kind: "sound",
+      mediaId: "s1",
+      path: "sounds/s1.mp3",
+    });
   });
 
   test("throws when a resource collides with the generated manifest", async () => {
@@ -335,9 +339,9 @@ describe("createOBZ", () => {
     };
     const resources = new Map([["manifest.json", new Uint8Array([1])]]);
 
-    await expect(createOBZ([board], "b", resources)).rejects.toThrow(
-      /resource path "manifest\.json" collides with a generated/,
-    );
+    expect(
+      await expectOBFErrorAsync(createOBZ([board], "b", resources)),
+    ).toMatchObject({ code: "path-collision", path: "manifest.json" });
   });
 
   test("throws when a resource collides with a generated board file", async () => {
@@ -349,9 +353,9 @@ describe("createOBZ", () => {
     };
     const resources = new Map([["boards/b.obf", new Uint8Array([1])]]);
 
-    await expect(createOBZ([board], "b", resources)).rejects.toThrow(
-      /resource path "boards\/b\.obf" collides with a generated/,
-    );
+    expect(
+      await expectOBFErrorAsync(createOBZ([board], "b", resources)),
+    ).toMatchObject({ code: "path-collision", path: "boards/b.obf" });
   });
 
   test("omits sounds map when no sounds have paths", async () => {
@@ -386,13 +390,13 @@ describe("createOBZ", () => {
       images: [{ id: "shared", path: "images/b.png" }],
     };
 
-    await expect(createOBZ([board1, board2], "b1")).rejects.toMatchObject({
-      info: {
-        code: "conflicting-paths",
-        kind: "image",
-        mediaId: "shared",
-        paths: ["images/a.png", "images/b.png"],
-      },
+    expect(
+      await expectOBFErrorAsync(createOBZ([board1, board2], "b1")),
+    ).toMatchObject({
+      code: "conflicting-paths",
+      kind: "image",
+      mediaId: "shared",
+      paths: ["images/a.png", "images/b.png"],
     });
   });
 });

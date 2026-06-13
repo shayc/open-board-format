@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { OBFError } from "./errors";
 import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
 import type { OBFBoard } from "./schema";
+import { expectOBFError } from "./test-utils";
 
 const validBoard: OBFBoard = {
   format: "open-board-0.1",
@@ -21,21 +21,14 @@ describe("parseOBF", () => {
   });
 
   test("throws a not-json OBFError for invalid JSON, preserving the cause", () => {
-    const malformedJson = '{ "format": "open-board-0.1", }';
+    const info = expectOBFError(() =>
+      parseOBF('{ "format": "open-board-0.1", }'),
+    );
 
-    let thrown: unknown;
-    try {
-      parseOBF(malformedJson);
-    } catch (error) {
-      thrown = error;
+    expect(info).toMatchObject({ code: "not-json", source: "board" });
+    if (info.code === "not-json") {
+      expect(info.cause).toBeInstanceOf(Error);
     }
-
-    expect(thrown).toBeInstanceOf(OBFError);
-    expect((thrown as OBFError).info).toMatchObject({
-      code: "not-json",
-      source: "board",
-    });
-    expect((thrown as OBFError).cause).toBeInstanceOf(Error);
   });
 
   test("handles UTF-8 BOM prefix", () => {
@@ -58,7 +51,9 @@ describe("validateOBF", () => {
       buttons: [],
     };
 
-    expect(() => validateOBF(boardWithoutGrid)).toThrow(/Invalid OBF/);
+    expect(expectOBFError(() => validateOBF(boardWithoutGrid)).code).toBe(
+      "invalid-board",
+    );
   });
 });
 

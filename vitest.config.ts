@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
@@ -6,6 +6,7 @@ export default defineConfig({
     unstubGlobals: true,
     coverage: {
       include: ["src/**/*.ts"],
+      exclude: [...coverageConfigDefaults.exclude, "src/test-utils.ts"],
       thresholds: {
         statements: 95,
         branches: 80,

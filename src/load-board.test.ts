@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { loadBoard } from "./load-board";
 import { createOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
+import { expectOBFErrorAsync } from "./test-utils";
 import { zip } from "./zip";
 
 const validBoard: OBFBoard = {
@@ -79,7 +80,7 @@ describe("loadBoard", () => {
   test("surfaces the OBF parser's error for a non-ZIP malformed board", async () => {
     const file = new File(['{ "format": "open-board-0.1", }'], "bad.obf");
 
-    await expect(loadBoard(file)).rejects.toThrow(/Invalid OBF/);
+    expect((await expectOBFErrorAsync(loadBoard(file))).code).toBe("not-json");
   });
 
   test("surfaces the OBZ extractor's error for a ZIP missing its manifest", async () => {
@@ -89,8 +90,8 @@ describe("loadBoard", () => {
     );
     const file = new File([zipped], "no-manifest.obz");
 
-    await expect(loadBoard(file)).rejects.toThrow(
-      /Invalid OBZ: missing manifest\.json/,
+    expect((await expectOBFErrorAsync(loadBoard(file))).code).toBe(
+      "missing-manifest",
     );
   });
 });
