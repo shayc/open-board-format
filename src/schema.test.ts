@@ -337,6 +337,26 @@ describe("OBFButtonSchema", () => {
     expect(OBFButtonSchema.safeParse(outOfBoundsWidth).success).toBe(false);
   });
 
+  test("accepts a button with no positioning attributes", () => {
+    const gridOnlyButton = { id: "1", label: "happy" };
+
+    expect(OBFButtonSchema.safeParse(gridOnlyButton).success).toBe(true);
+  });
+
+  test("rejects a partial positioning set", () => {
+    const missingHeight = {
+      id: "1",
+      top: 0.2,
+      left: 0.3,
+      width: 0.1,
+    };
+
+    expect(OBFButtonSchema.safeParse(missingHeight).success).toBe(false);
+    expect(OBFButtonSchema.safeParse({ id: "1", top: 0.2 }).success).toBe(
+      false,
+    );
+  });
+
   test("accepts button with actions array and load_board, coerces nested ID", () => {
     const buttonWithActionsAndLoadBoard = {
       id: "nav-btn",
@@ -551,14 +571,14 @@ describe("OBFManifestSchema", () => {
     expect(OBFManifestSchema.safeParse(missingBoards).success).toBe(false);
   });
 
-  test("requires images in paths", () => {
-    const missingImages = {
+  test("accepts manifest without images (optional)", () => {
+    const noImages = {
       format: "open-board-0.1",
       root: "boards/main.obf",
       paths: { boards: { main: "boards/main.obf" } },
     };
 
-    expect(OBFManifestSchema.safeParse(missingImages).success).toBe(false);
+    expect(OBFManifestSchema.safeParse(noImages).success).toBe(true);
   });
 
   test("rejects root not listed in paths.boards", () => {

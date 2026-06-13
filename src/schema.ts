@@ -261,42 +261,55 @@ export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
 /**
  * Interactive element on a board, optionally linked to images, sounds, and actions.
  */
-export const OBFButtonSchema = z.looseObject({
-  /** Unique identifier for the button. */
-  id: OBFIDSchema,
-  /** Label text displayed on the button. */
-  label: z.string().optional(),
-  /** Alternative text for vocalization when the button is activated. */
-  vocalization: z.string().optional(),
-  /** Identifier of the image associated with the button. */
-  image_id: OBFOptionalIDSchema,
-  /** Identifier of the sound associated with the button. */
-  sound_id: OBFOptionalIDSchema,
-  /**
-   * Action triggered by the button. When `actions` is also set, this is
-   * the single-action fallback for apps that support one action per button.
-   */
-  action: OBFButtonActionSchema.optional(),
-  /**
-   * Multiple actions executed in order. Apps that support it should
-   * prefer this over the single `action` fallback.
-   */
-  actions: z.array(OBFButtonActionSchema).optional(),
-  /** Information to load another board when this button is activated. */
-  load_board: OBFLoadBoardSchema.optional(),
-  /** Background color of the button in `rgb` or `rgba` format. */
-  background_color: z.string().optional(),
-  /** Border color of the button in `rgb` or `rgba` format. */
-  border_color: z.string().optional(),
-  /** Vertical position for absolute positioning (0.0 to 1.0). */
-  top: z.number().min(0).max(1).optional(),
-  /** Horizontal position for absolute positioning (0.0 to 1.0). */
-  left: z.number().min(0).max(1).optional(),
-  /** Width of the button for absolute positioning (0.0 to 1.0). */
-  width: z.number().min(0).max(1).optional(),
-  /** Height of the button for absolute positioning (0.0 to 1.0). */
-  height: z.number().min(0).max(1).optional(),
-});
+export const OBFButtonSchema = z
+  .looseObject({
+    /** Unique identifier for the button. */
+    id: OBFIDSchema,
+    /** Label text displayed on the button. */
+    label: z.string().optional(),
+    /** Alternative text for vocalization when the button is activated. */
+    vocalization: z.string().optional(),
+    /** Identifier of the image associated with the button. */
+    image_id: OBFOptionalIDSchema,
+    /** Identifier of the sound associated with the button. */
+    sound_id: OBFOptionalIDSchema,
+    /**
+     * Action triggered by the button. When `actions` is also set, this is
+     * the single-action fallback for apps that support one action per button.
+     */
+    action: OBFButtonActionSchema.optional(),
+    /**
+     * Multiple actions executed in order. Apps that support it should
+     * prefer this over the single `action` fallback.
+     */
+    actions: z.array(OBFButtonActionSchema).optional(),
+    /** Information to load another board when this button is activated. */
+    load_board: OBFLoadBoardSchema.optional(),
+    /** Background color of the button in `rgb` or `rgba` format. */
+    background_color: z.string().optional(),
+    /** Border color of the button in `rgb` or `rgba` format. */
+    border_color: z.string().optional(),
+    /** Vertical position for absolute positioning (0.0 to 1.0). */
+    top: z.number().min(0).max(1).optional(),
+    /** Horizontal position for absolute positioning (0.0 to 1.0). */
+    left: z.number().min(0).max(1).optional(),
+    /** Width of the button for absolute positioning (0.0 to 1.0). */
+    width: z.number().min(0).max(1).optional(),
+    /** Height of the button for absolute positioning (0.0 to 1.0). */
+    height: z.number().min(0).max(1).optional(),
+  })
+  .refine(
+    (b) => {
+      const set = [b.top, b.left, b.width, b.height].filter(
+        (v) => v !== undefined,
+      );
+      return set.length === 0 || set.length === 4;
+    },
+    {
+      message:
+        "Absolute positioning requires all of top, left, width, and height (or none)",
+    },
+  );
 
 /**
  * Interactive element on a board, optionally linked to images, sounds, and
@@ -382,7 +395,7 @@ export const OBFManifestSchema = z
       /** Mapping of board IDs to their file paths. */
       boards: z.record(z.string(), z.string()),
       /** Mapping of image IDs to their file paths. */
-      images: z.record(z.string(), z.string()),
+      images: z.record(z.string(), z.string()).optional(),
       /** Mapping of sound IDs to their file paths. */
       sounds: z.record(z.string(), z.string()).optional(),
     }),
