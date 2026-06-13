@@ -68,10 +68,12 @@ export function zip(
     }
 
     fflateZip(pathToBytes, { level: COMPRESSION_LEVEL }, (error, result) => {
+      /* v8 ignore start -- defensive: fflate does not error on valid byte input */
       if (error) {
         reject(new OBFError({ code: "zip-failed" }, { cause: error }));
         return;
       }
+      /* v8 ignore stop */
 
       resolve(result);
     });
