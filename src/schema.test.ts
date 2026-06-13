@@ -612,7 +612,6 @@ describe("Integration: Real-world OBF Board", () => {
     expect(result.success).toBe(true);
 
     if (result.success) {
-      // Verify key properties are parsed correctly
       expect(result.data.format).toBe("open-board-0.1");
       expect(result.data.id).toBe("lots_of_stuff");
       expect(result.data.locale).toBe("en");

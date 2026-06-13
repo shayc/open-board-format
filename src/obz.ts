@@ -50,9 +50,8 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
  * Decompress an OBZ archive and return its manifest, boards, and resources.
  *
  * @param archive - The OBZ archive as an `ArrayBuffer`.
- * @returns The parsed manifest, a map of board IDs to validated boards,
- *          the resolved root board, and a map of file paths to their
- *          binary content.
+ * @returns A {@link ParsedOBZ} with the archive's manifest, boards, root
+ *          board, and resources.
  *
  * @throws {@link OBFError}; branch on `info.code`: `"not-zip"`,
  *   `"unreadable-zip"`, `"missing-manifest"`, `"not-json"` or

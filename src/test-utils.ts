@@ -49,7 +49,8 @@ export function expectOBFError(fn: () => unknown): OBFErrorInfo {
 }
 
 /**
- * Assert that `promise` rejects with an {@link OBFError} and return its `info`.
+ * Assert that `promise` rejects with an {@link OBFError} and return its `info`,
+ * so callers can make further assertions on the discriminated failure.
  */
 export async function expectOBFErrorAsync(
   promise: Promise<unknown>,

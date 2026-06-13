@@ -1,8 +1,5 @@
 /**
- * Open Board Format (OBF) Zod Schemas
- *
- * These schemas represent the Open Board Format, designed for sharing communication boards and board sets
- * between Augmentative and Alternative Communication (AAC) applications.
+ * Zod schemas for the Open Board Format (OBF) data model.
  *
  * Official OBF specification: https://www.openboardformat.org/docs
  */
@@ -36,19 +33,13 @@ export const OBFIDSchema = z
   .transform((val) => String(val))
   .pipe(z.string().min(1));
 
-/**
- * Unique board-element identifier, coerced to a non-empty string.
- * See {@link OBFIDSchema}.
- */
+/** Unique board-element identifier, coerced to a non-empty string. See {@link OBFIDSchema}. */
 export type OBFID = z.infer<typeof OBFIDSchema>;
 
 /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
 export const OBFFormatVersionSchema = z.string().regex(/^open-board-.+$/);
 
-/**
- * Format version of the Open Board Format, e.g., `open-board-0.1`.
- * See {@link OBFFormatVersionSchema}.
- */
+/** Format version of the Open Board Format, e.g., `open-board-0.1`. See {@link OBFFormatVersionSchema}. */
 export type OBFFormatVersion = z.infer<typeof OBFFormatVersionSchema>;
 
 /**
@@ -57,10 +48,7 @@ export type OBFFormatVersion = z.infer<typeof OBFFormatVersionSchema>;
  */
 export const OBFLocaleCodeSchema = z.string();
 
-/**
- * Locale identifier, typically a BCP 47 language tag, e.g., `en`, `en-US`.
- * See {@link OBFLocaleCodeSchema}.
- */
+/** Locale identifier, typically a BCP 47 language tag, e.g., `en`, `en-US`. See {@link OBFLocaleCodeSchema}. */
 export type OBFLocaleCode = z.infer<typeof OBFLocaleCodeSchema>;
 
 /**
@@ -69,10 +57,7 @@ export type OBFLocaleCode = z.infer<typeof OBFLocaleCodeSchema>;
  */
 export const OBFLocalizedStringsSchema = z.record(z.string(), z.string());
 
-/**
- * Translations for a single locale, keyed by the source string.
- * See {@link OBFLocalizedStringsSchema}.
- */
+/** Translations for a single locale, keyed by the source string. See {@link OBFLocalizedStringsSchema}. */
 export type OBFLocalizedStrings = z.infer<typeof OBFLocalizedStringsSchema>;
 
 /**
@@ -81,10 +66,7 @@ export type OBFLocalizedStrings = z.infer<typeof OBFLocalizedStringsSchema>;
  */
 export const OBFStringsSchema = z.record(z.string(), OBFLocalizedStringsSchema);
 
-/**
- * Locale-keyed dictionary of translated strings.
- * See {@link OBFStringsSchema}.
- */
+/** Locale-keyed dictionary of translated strings. See {@link OBFStringsSchema}. */
 export type OBFStrings = z.infer<typeof OBFStringsSchema>;
 
 /**
@@ -93,10 +75,7 @@ export type OBFStrings = z.infer<typeof OBFStringsSchema>;
  */
 export const OBFSpellingActionSchema = z.string().regex(/^\+.+$/);
 
-/**
- * Spelling action: a `+` prefix followed by the text to append, e.g., `+hello`.
- * See {@link OBFSpellingActionSchema}.
- */
+/** Spelling action: a `+` prefix followed by the text to append, e.g., `+hello`. See {@link OBFSpellingActionSchema}. */
 export type OBFSpellingAction = z.infer<typeof OBFSpellingActionSchema>;
 
 /**
@@ -107,10 +86,7 @@ export const OBFSpecialtyActionSchema = z
   .string()
   .regex(/^:[a-z][a-z0-9_-]*$/i);
 
-/**
- * Specialty action prefixed with `:`, e.g., `:clear`.
- * See {@link OBFSpecialtyActionSchema}.
- */
+/** Specialty action prefixed with `:`, e.g., `:clear`. See {@link OBFSpecialtyActionSchema}. */
 export type OBFSpecialtyAction = z.infer<typeof OBFSpecialtyActionSchema>;
 
 /** Union of spelling and specialty actions that a button can trigger. */
@@ -119,10 +95,7 @@ export const OBFButtonActionSchema = z.union([
   OBFSpecialtyActionSchema,
 ]);
 
-/**
- * Union of spelling and specialty actions that a button can trigger.
- * See {@link OBFButtonActionSchema}.
- */
+/** Union of spelling and specialty actions that a button can trigger. See {@link OBFButtonActionSchema}. */
 export type OBFButtonAction = z.infer<typeof OBFButtonActionSchema>;
 
 /** License terms and attribution for a resource. */
@@ -141,10 +114,7 @@ export const OBFLicenseSchema = z.looseObject({
   author_email: OBFOptionalEmailSchema,
 });
 
-/**
- * License terms and attribution for a resource.
- * See {@link OBFLicenseSchema}.
- */
+/** License terms and attribution for a resource. See {@link OBFLicenseSchema}. */
 export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
 
 /**
@@ -179,10 +149,7 @@ export const OBFMediaSchema = z.looseObject({
   license: OBFLicenseSchema.optional(),
 });
 
-/**
- * Common properties for media resources (images and sounds).
- * See {@link OBFMediaSchema}.
- */
+/** Common properties for media resources (images and sounds). See {@link OBFMediaSchema}. */
 export type OBFMedia = z.infer<typeof OBFMediaSchema>;
 
 /** Reference to a symbol in a proprietary symbol set (e.g., SymbolStix). */
@@ -193,10 +160,7 @@ export const OBFSymbolInfoSchema = z.looseObject({
   filename: z.string(),
 });
 
-/**
- * Reference to a symbol in a proprietary symbol set.
- * See {@link OBFSymbolInfoSchema}.
- */
+/** Reference to a symbol in a proprietary symbol set. See {@link OBFSymbolInfoSchema}. */
 export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
 
 /**
@@ -218,10 +182,7 @@ export const OBFImageSchema = OBFMediaSchema.extend({
   height: z.number().optional(),
 });
 
-/**
- * Image resource with optional symbol and dimension properties.
- * See {@link OBFImageSchema}.
- */
+/** Image resource with optional symbol and dimension properties. See {@link OBFImageSchema}. */
 export type OBFImage = z.infer<typeof OBFImageSchema>;
 
 /**
@@ -229,10 +190,7 @@ export type OBFImage = z.infer<typeof OBFImageSchema>;
  */
 export const OBFSoundSchema = OBFMediaSchema;
 
-/**
- * Audio resource, identical to {@link OBFMedia}.
- * See {@link OBFSoundSchema}.
- */
+/** Audio resource, identical to {@link OBFMediaSchema}. See {@link OBFSoundSchema}. */
 export type OBFSound = z.infer<typeof OBFSoundSchema>;
 
 /** Reference to another board, resolved by ID, path, or URL. */
@@ -252,10 +210,7 @@ export const OBFLoadBoardSchema = z.looseObject({
   path: z.string().optional(),
 });
 
-/**
- * Reference to another board, resolved by ID, path, or URL.
- * See {@link OBFLoadBoardSchema}.
- */
+/** Reference to another board, resolved by ID, path, or URL. See {@link OBFLoadBoardSchema}. */
 export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
 
 /**
@@ -311,10 +266,7 @@ export const OBFButtonSchema = z
     },
   );
 
-/**
- * Interactive element on a board, optionally linked to images, sounds, and
- * actions. See {@link OBFButtonSchema}.
- */
+/** Interactive element on a board, optionally linked to images, sounds, and actions. See {@link OBFButtonSchema}. */
 export type OBFButton = z.infer<typeof OBFButtonSchema>;
 
 /**
@@ -339,10 +291,7 @@ export const OBFGridSchema = z
     message: "Each grid row must have length equal to columns",
   });
 
-/**
- * Row-and-column layout that arranges buttons by their IDs.
- * See {@link OBFGridSchema}.
- */
+/** Row-and-column layout that arranges buttons by their IDs. See {@link OBFGridSchema}. */
 export type OBFGrid = z.infer<typeof OBFGridSchema>;
 
 /**
@@ -375,10 +324,7 @@ export const OBFBoardSchema = z.looseObject({
   strings: OBFStringsSchema.optional(),
 });
 
-/**
- * The complete definition of a single communication board — root object of
- * an `.obf` file. See {@link OBFBoardSchema}.
- */
+/** Root object of an `.obf` file: the complete definition of a single communication board. See {@link OBFBoardSchema}. */
 export type OBFBoard = z.infer<typeof OBFBoardSchema>;
 
 /**
@@ -405,8 +351,5 @@ export const OBFManifestSchema = z
     path: ["root"],
   });
 
-/**
- * Table of contents for an `.obz` package, mapping resource IDs to their
- * archive paths. See {@link OBFManifestSchema}.
- */
+/** Table of contents for an `.obz` package, mapping resource IDs to their archive paths. See {@link OBFManifestSchema}. */
 export type OBFManifest = z.infer<typeof OBFManifestSchema>;
