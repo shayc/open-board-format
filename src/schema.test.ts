@@ -149,6 +149,21 @@ describe("OBFLicenseSchema", () => {
 
     expect(OBFLicenseSchema.safeParse(invalidEmail).success).toBe(false);
   });
+
+  test("coerces empty-string urls and email to undefined", () => {
+    const parsed = OBFLicenseSchema.parse({
+      type: "CC-BY",
+      copyright_notice_url: "",
+      source_url: "",
+      author_url: "",
+      author_email: "",
+    });
+
+    expect(parsed.copyright_notice_url).toBeUndefined();
+    expect(parsed.source_url).toBeUndefined();
+    expect(parsed.author_url).toBeUndefined();
+    expect(parsed.author_email).toBeUndefined();
+  });
 });
 
 describe("OBFMediaSchema", () => {
@@ -371,6 +386,17 @@ describe("OBFButtonSchema", () => {
     };
 
     expect(OBFButtonSchema.safeParse(invalidLoadBoardUrl).success).toBe(false);
+  });
+
+  test("coerces empty-string media ids to undefined", () => {
+    const parsed = OBFButtonSchema.parse({
+      id: "1",
+      image_id: "",
+      sound_id: "",
+    });
+
+    expect(parsed.image_id).toBeUndefined();
+    expect(parsed.sound_id).toBeUndefined();
   });
 });
 

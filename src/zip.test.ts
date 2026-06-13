@@ -32,9 +32,12 @@ describe("isZip", () => {
   test.each([
     ["empty", [] as number[]],
     ["1-byte", [0x50]],
-  ])("returns false for %s buffer (shorter than the 2-byte PK signature)", (_label, bytes) => {
-    expect(isZip(new Uint8Array(bytes).buffer)).toBe(false);
-  });
+  ])(
+    "returns false for %s buffer (shorter than the 2-byte PK signature)",
+    (_label, bytes) => {
+      expect(isZip(new Uint8Array(bytes).buffer)).toBe(false);
+    },
+  );
 
   test("returns true for PK followed by arbitrary bytes (false positive accepted)", () => {
     const pkFollowedByJunk = new Uint8Array([0x50, 0x4b, 0xff, 0xff, 0x00])

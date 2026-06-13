@@ -314,6 +314,28 @@ describe("createOBZ", () => {
     expect(extracted.manifest.paths.images).toEqual({});
   });
 
+  test("includes path-bearing media but skips url/data-only entries", async () => {
+    const board = makeBoard({
+      buttons: [{ id: "btn", image_id: "kept" }],
+      grid: { rows: 1, columns: 1, order: [["btn"]] },
+      images: [
+        { id: "kept", path: "images/kept.png" },
+        { id: "url-only", url: "https://example.com/x.png" },
+        { id: "data-only", data: "data:image/png;base64,AAAA" },
+      ],
+    });
+    const resources = new Map([["images/kept.png", new Uint8Array([1])]]);
+
+    const extracted = await extractOBZ(
+      await (await createOBZ([board], "b", resources)).arrayBuffer(),
+    );
+
+    // Only the path-bearing entry survives; url/data-only media are skipped.
+    expect(extracted.manifest.paths.images).toStrictEqual({
+      kept: "images/kept.png",
+    });
+  });
+
   test("throws when two boards declare the same image id with conflicting paths", async () => {
     const board1 = makeBoard({
       id: "b1",
@@ -331,6 +353,26 @@ describe("createOBZ", () => {
       kind: "image",
       mediaId: "shared",
       paths: ["images/a.png", "images/b.png"],
+    });
+  });
+
+  test("throws when two boards declare the same sound id with conflicting paths", async () => {
+    const board1 = makeBoard({
+      id: "b1",
+      sounds: [{ id: "shared", path: "sounds/a.mp3" }],
+    });
+    const board2 = makeBoard({
+      id: "b2",
+      sounds: [{ id: "shared", path: "sounds/b.mp3" }],
+    });
+
+    expect(
+      await expectOBFErrorAsync(createOBZ([board1, board2], "b1")),
+    ).toMatchObject({
+      code: "conflicting-paths",
+      kind: "sound",
+      mediaId: "shared",
+      paths: ["sounds/a.mp3", "sounds/b.mp3"],
     });
   });
 });
