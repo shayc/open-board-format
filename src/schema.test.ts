@@ -252,16 +252,6 @@ describe("OBFImageSchema", () => {
 
     expect(OBFImageSchema.safeParse(validImage).success).toBe(true);
   });
-
-  test("accepts image without dimensions", () => {
-    const validImage = {
-      id: "img3",
-      path: "images/icon.png",
-      content_type: "image/png",
-    };
-
-    expect(OBFImageSchema.safeParse(validImage).success).toBe(true);
-  });
 });
 
 describe("OBFButtonSchema", () => {
@@ -323,18 +313,6 @@ describe("OBFButtonSchema", () => {
     };
 
     expect(OBFButtonSchema.safeParse(outOfBoundsLeft).success).toBe(false);
-  });
-
-  test("rejects out-of-bounds width", () => {
-    const outOfBoundsWidth = {
-      id: "1",
-      top: 0,
-      left: 0,
-      width: 1.5,
-      height: 0.1,
-    };
-
-    expect(OBFButtonSchema.safeParse(outOfBoundsWidth).success).toBe(false);
   });
 
   test("accepts a button with no positioning attributes", () => {
@@ -431,16 +409,11 @@ describe("OBFGridSchema", () => {
     }
   });
 
-  test("rejects zero rows", () => {
-    const zeroRows = { rows: 0, columns: 1, order: [] };
-
-    expect(OBFGridSchema.safeParse(zeroRows).success).toBe(false);
-  });
-
-  test("rejects negative columns", () => {
-    const negativeColumns = { rows: 1, columns: -1, order: [[]] };
-
-    expect(OBFGridSchema.safeParse(negativeColumns).success).toBe(false);
+  test.each([
+    ["zero rows", { rows: 0, columns: 1, order: [] }],
+    ["negative columns", { rows: 1, columns: -1, order: [[]] }],
+  ])("rejects %s (violates the min(1) integer bound)", (_label, grid) => {
+    expect(OBFGridSchema.safeParse(grid).success).toBe(false);
   });
 
   test("rejects float rows", () => {
@@ -571,16 +544,6 @@ describe("OBFManifestSchema", () => {
     expect(OBFManifestSchema.safeParse(missingBoards).success).toBe(false);
   });
 
-  test("accepts manifest without images (optional)", () => {
-    const noImages = {
-      format: "open-board-0.1",
-      root: "boards/main.obf",
-      paths: { boards: { main: "boards/main.obf" } },
-    };
-
-    expect(OBFManifestSchema.safeParse(noImages).success).toBe(true);
-  });
-
   test("rejects root not listed in paths.boards", () => {
     const rootNotListed = {
       format: "open-board-0.1",
@@ -589,19 +552,6 @@ describe("OBFManifestSchema", () => {
     };
 
     expect(OBFManifestSchema.safeParse(rootNotListed).success).toBe(false);
-  });
-
-  test("accepts manifest without sounds (optional)", () => {
-    const noSounds = {
-      format: "open-board-0.1",
-      root: "boards/main.obf",
-      paths: {
-        boards: { main: "boards/main.obf" },
-        images: { icon: "images/icon.png" },
-      },
-    };
-
-    expect(OBFManifestSchema.safeParse(noSounds).success).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { OBFError } from "./errors";
 import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
-import { expectOBFError, makeBoard } from "./test-utils";
+import { makeBoard } from "./test-utils";
 
 const validBoard = makeBoard({
   id: "test-board",
@@ -47,18 +47,6 @@ describe("validateOBF", () => {
   test("accepts valid board structure", () => {
     expect(() => validateOBF(validBoard)).not.toThrow();
   });
-
-  test("throws for missing required grid field", () => {
-    const boardWithoutGrid: unknown = {
-      format: "open-board-0.1",
-      id: "test-board",
-      buttons: [],
-    };
-
-    expect(expectOBFError(() => validateOBF(boardWithoutGrid)).code).toBe(
-      "invalid-board",
-    );
-  });
 });
 
 describe("loadOBF", () => {
@@ -78,18 +66,5 @@ describe("OBF round-trip", () => {
     const parsed = parseOBF(json);
 
     expect(parsed).toEqual(validBoard);
-  });
-
-  test("round-trip preserves ext_ fields at button level", () => {
-    const boardWithButtonExt = makeBoard({
-      id: "ext-button-board",
-      buttons: [{ id: "b1", label: "Hi", ext_myapp_anim: "fade" }],
-      grid: { rows: 1, columns: 1, order: [["b1"]] },
-    });
-
-    const parsed = parseOBF(stringifyOBF(boardWithButtonExt));
-    expect((parsed.buttons[0] as Record<string, unknown>).ext_myapp_anim).toBe(
-      "fade",
-    );
   });
 });

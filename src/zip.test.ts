@@ -29,16 +29,11 @@ describe("isZip", () => {
     expect(isZip(notPk)).toBe(false);
   });
 
-  test("returns false for 1-byte buffer (too short for PK)", () => {
-    const oneByte = new Uint8Array([0x50]).buffer;
-
-    expect(isZip(oneByte)).toBe(false);
-  });
-
-  test("returns false for empty buffer", () => {
-    const empty = new Uint8Array([]).buffer;
-
-    expect(isZip(empty)).toBe(false);
+  test.each([
+    ["empty", [] as number[]],
+    ["1-byte", [0x50]],
+  ])("returns false for %s buffer (shorter than the 2-byte PK signature)", (_label, bytes) => {
+    expect(isZip(new Uint8Array(bytes).buffer)).toBe(false);
   });
 
   test("returns true for PK followed by arbitrary bytes (false positive accepted)", () => {
