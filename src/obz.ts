@@ -112,12 +112,12 @@ export function parseManifest(json: string): OBFManifest {
  * A manifest is generated automatically from the supplied boards,
  * using the `rootBoardId` to designate the entry-point board.
  *
+ * Every failure is an {@link OBFError}; branch on `info.code`.
+ *
  * @param boards - The boards to include in the archive.
  * @param rootBoardId - The ID of the board that serves as the archive's entry point.
  * @param resources - Optional map of file paths to binary content (images, sounds, etc.).
  * @returns A `Blob` containing the compressed OBZ archive.
- *
- * All failures are an {@link OBFError}; branch on `info.code`:
  *
  * @throws {@link OBFError} `"unknown-root"` if `rootBoardId` does not match any of the supplied boards.
  * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share the same ID.

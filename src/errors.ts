@@ -28,7 +28,9 @@ import { z } from "zod";
 
 /**
  * A single schema validation problem — Zod's issue shape, re-exported under a
- * stable name so consumers never reference Zod's `$`-prefixed core type.
+ * domain name. `z.core.$ZodIssue` is the type Zod v4 designates for libraries
+ * built on it (the bare `z.ZodIssue` is deprecated in its favor); aliasing it
+ * gives consumers a stable OBF name without reaching into Zod's `core` export.
  */
 export type OBFIssue = z.core.$ZodIssue;
 
@@ -121,8 +123,10 @@ function formatOBFError(info: OBFErrorInfo): string {
       return "Invalid OBZ: not a ZIP file";
     case "unreadable-zip":
       return "ZIP archive could not be read";
-    case "invalid-board":
-      return `Invalid OBF${info.boardId ? ` board "${info.boardId}"` : " board"}:\n${prettifyIssues(info.issues)}`;
+    case "invalid-board": {
+      const subject = info.boardId ? `board "${info.boardId}"` : "board";
+      return `Invalid OBF ${subject}:\n${prettifyIssues(info.issues)}`;
+    }
     case "invalid-manifest":
       return `Invalid OBZ manifest:\n${prettifyIssues(info.issues)}`;
     case "missing-manifest":
