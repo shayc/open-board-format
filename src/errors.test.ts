@@ -1,18 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { OBFError } from "./errors";
 import type { OBFErrorInfo } from "./errors";
-import { createOBZ, extractOBZ, parseManifest } from "./obz";
+import { OBFError } from "./errors";
 import { parseOBF, validateOBF } from "./obf";
-import type { OBFBoard } from "./schema";
-import { expectOBFError, expectOBFErrorAsync } from "./test-utils";
-
-const board = (overrides: Partial<OBFBoard> = {}): OBFBoard => ({
-  format: "open-board-0.1",
-  id: "b",
-  buttons: [],
-  grid: { rows: 1, columns: 1, order: [[null]] },
-  ...overrides,
-});
+import { createOBZ, extractOBZ, parseManifest } from "./obz";
+import { expectOBFError, expectOBFErrorAsync, makeBoard } from "./test-utils";
 
 /**
  * Switching on `info.code` narrows to each variant's fields with no casts.
@@ -135,18 +126,18 @@ describe("thrown OBFError.info across the surface", () => {
 
   test("createOBZ → unknown-root names the offending id", async () => {
     expect(
-      await expectOBFErrorAsync(createOBZ([board()], "missing")),
+      await expectOBFErrorAsync(createOBZ([makeBoard()], "missing")),
     ).toMatchObject({ code: "unknown-root", rootBoardId: "missing" });
   });
 
   test("createOBZ → duplicate-board names the repeated id", async () => {
     expect(
-      await expectOBFErrorAsync(createOBZ([board(), board()], "b")),
+      await expectOBFErrorAsync(createOBZ([makeBoard(), makeBoard()], "b")),
     ).toMatchObject({ code: "duplicate-board", boardId: "b" });
   });
 
   test("createOBZ → missing-resource names kind, id, and path", async () => {
-    const withImage = board({
+    const withImage = makeBoard({
       images: [{ id: "i1", path: "images/i1.png" }],
     });
 
@@ -164,7 +155,7 @@ describe("thrown OBFError.info across the surface", () => {
     const resources = new Map([["manifest.json", new Uint8Array([1])]]);
 
     expect(
-      await expectOBFErrorAsync(createOBZ([board()], "b", resources)),
+      await expectOBFErrorAsync(createOBZ([makeBoard()], "b", resources)),
     ).toMatchObject({ code: "path-collision", path: "manifest.json" });
   });
 });

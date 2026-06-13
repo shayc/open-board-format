@@ -13,7 +13,11 @@ import {
   OBFSpellingActionSchema,
   OBFSymbolInfoSchema,
 } from "./schema";
-import lotsOfStuffExample from "../tests/examples/lots_of_stuff.json";
+import { readFixtureText } from "./test-utils";
+
+const lotsOfStuffExample: unknown = JSON.parse(
+  readFixtureText("lots-of-stuff.obf"),
+);
 
 describe("OBFIDSchema", () => {
   test("coerces numbers to strings", () => {
@@ -582,7 +586,7 @@ describe("OBFManifestSchema", () => {
 });
 
 describe("Integration: Real-world OBF Board", () => {
-  test("validates complete board from lots_of_stuff.json example", () => {
+  test("validates complete board from lots-of-stuff.obf example", () => {
     const result = OBFBoardSchema.safeParse(lotsOfStuffExample);
 
     expect(result.success).toBe(true);

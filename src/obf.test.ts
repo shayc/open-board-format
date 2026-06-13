@@ -1,17 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { OBFError } from "./errors";
 import { loadOBF, parseOBF, stringifyOBF, validateOBF } from "./obf";
-import type { OBFBoard } from "./schema";
-import { expectOBFError } from "./test-utils";
+import { expectOBFError, makeBoard } from "./test-utils";
 
-const validBoard: OBFBoard = {
-  format: "open-board-0.1",
+const validBoard = makeBoard({
   id: "test-board",
   buttons: [{ id: "btn-1", label: "Hello" }],
   grid: { rows: 1, columns: 1, order: [["btn-1"]] },
   // ext_ keys are spec-blessed extension fields and must survive round-trip.
   ext_speaker_color: "blue",
-};
+});
 
 describe("parseOBF", () => {
   test("parses valid JSON board", () => {
@@ -83,12 +81,11 @@ describe("OBF round-trip", () => {
   });
 
   test("round-trip preserves ext_ fields at button level", () => {
-    const boardWithButtonExt: OBFBoard = {
-      format: "open-board-0.1",
+    const boardWithButtonExt = makeBoard({
       id: "ext-button-board",
       buttons: [{ id: "b1", label: "Hi", ext_myapp_anim: "fade" }],
       grid: { rows: 1, columns: 1, order: [["b1"]] },
-    };
+    });
 
     const parsed = parseOBF(stringifyOBF(boardWithButtonExt));
     expect((parsed.buttons[0] as Record<string, unknown>).ext_myapp_anim).toBe(
