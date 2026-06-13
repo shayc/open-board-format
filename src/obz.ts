@@ -2,7 +2,8 @@
  * Creation and extraction of `.obz` board packages.
  */
 
-import { buildJsonParseErrorMessage, parseOBF } from "./obf";
+import { OBFError } from "./errors";
+import { parseOBF } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import { isZip, unzip, zip } from "./zip";
@@ -37,7 +38,8 @@ export interface ParsedOBZ {
  * @param file - A `File` handle pointing to an `.obz` archive.
  * @returns The parsed manifest, boards, root board, and binary resources.
  *
- * @throws {Error} Same failures as {@link extractOBZ}, which this delegates to.
+ * @throws {@link OBFError} — the same failures as {@link extractOBZ}, which
+ *   this delegates to.
  */
 export async function loadOBZ(file: File): Promise<ParsedOBZ> {
   const archive = await file.arrayBuffer();
@@ -52,13 +54,14 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
  *          the resolved root board, and a map of file paths to their
  *          binary content.
  *
- * @throws {Error} If the archive is not a valid ZIP, the manifest is missing,
- *   a board declared in the manifest is missing or fails validation, or a
- *   board's `id` differs from the ID the manifest declares for it.
+ * @throws {@link OBFError}; branch on `info.code`: `"not-zip"`,
+ *   `"unreadable-zip"`, `"missing-manifest"`, `"not-json"` or
+ *   `"invalid-manifest"` (bad manifest), `"missing-board"`,
+ *   `"board-id-mismatch"`, or `"invalid-board"` (a board fails validation).
  */
 export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
   if (!isZip(archive)) {
-    throw new Error("Invalid OBZ: not a ZIP file");
+    throw new OBFError({ code: "not-zip" });
   }
 
   const entries = await unzip(archive);
@@ -76,7 +79,8 @@ export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
  * @param json - A JSON string representing the manifest.
  * @returns The validated manifest object.
  *
- * @throws {Error} If the JSON is malformed or fails schema validation.
+ * @throws {@link OBFError} with `info.code` `"not-json"` if the JSON is
+ *   malformed, or `"invalid-manifest"` if it fails schema validation.
  */
 export function parseManifest(json: string): OBFManifest {
   let data: unknown;
@@ -84,15 +88,19 @@ export function parseManifest(json: string): OBFManifest {
   try {
     data = JSON.parse(json) as unknown;
   } catch (error) {
-    throw new Error(buildJsonParseErrorMessage("manifest", error), {
-      cause: error,
-    });
+    throw new OBFError(
+      { code: "not-json", source: "manifest" },
+      { cause: error },
+    );
   }
 
   const result = OBFManifestSchema.safeParse(data);
 
   if (!result.success) {
-    throw new Error(`Invalid manifest: ${result.error.message}`);
+    throw new OBFError(
+      { code: "invalid-manifest", issues: result.error.issues },
+      { cause: result.error },
+    );
   }
 
   return result.data;
@@ -104,17 +112,19 @@ export function parseManifest(json: string): OBFManifest {
  * A manifest is generated automatically from the supplied boards,
  * using the `rootBoardId` to designate the entry-point board.
  *
+ * Every failure is an {@link OBFError}; branch on `info.code`.
+ *
  * @param boards - The boards to include in the archive.
  * @param rootBoardId - The ID of the board that serves as the archive's entry point.
  * @param resources - Optional map of file paths to binary content (images, sounds, etc.).
  * @returns A `Blob` containing the compressed OBZ archive.
  *
- * @throws {Error} If `rootBoardId` does not match any of the supplied boards.
- * @throws {Error} If two supplied boards share the same ID.
- * @throws {Error} If a supplied board fails schema validation.
- * @throws {Error} If two boards declare the same media ID with conflicting paths.
- * @throws {Error} If a board declares an image or sound `path` with no matching entry in `resources`.
- * @throws {Error} If a `resources` entry would overwrite the generated `manifest.json` or a board file.
+ * @throws {@link OBFError} `"unknown-root"` if `rootBoardId` does not match any of the supplied boards.
+ * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share the same ID.
+ * @throws {@link OBFError} `"invalid-board"` if a supplied board fails schema validation.
+ * @throws {@link OBFError} `"conflicting-paths"` if two boards declare the same media ID with conflicting paths.
+ * @throws {@link OBFError} `"missing-resource"` if a board declares an image or sound `path` with no matching entry in `resources`.
+ * @throws {@link OBFError} `"path-collision"` if a `resources` entry would overwrite the generated `manifest.json` or a board file.
  */
 export async function createOBZ(
   boards: OBFBoard[],
@@ -122,17 +132,13 @@ export async function createOBZ(
   resources?: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Blob> {
   if (!boards.some((board) => board.id === rootBoardId)) {
-    throw new Error(
-      `Invalid OBZ: rootBoardId "${rootBoardId}" does not match any supplied board`,
-    );
+    throw new OBFError({ code: "unknown-root", rootBoardId });
   }
 
   const seenBoardIds = new Set<string>();
   for (const board of boards) {
     if (seenBoardIds.has(board.id)) {
-      throw new Error(
-        `Invalid OBZ: duplicate board id "${board.id}" — board ids must be unique within a package`,
-      );
+      throw new OBFError({ code: "duplicate-board", boardId: board.id });
     }
     seenBoardIds.add(board.id);
   }
@@ -156,11 +162,14 @@ export async function createOBZ(
     },
   });
 
+  /* v8 ignore start -- defensive: the manifest is built from already-validated inputs */
   if (!manifestResult.success) {
-    throw new Error(
-      `Invalid OBZ: generated manifest failed validation — ${manifestResult.error.message}`,
+    throw new OBFError(
+      { code: "internal", detail: "generated manifest failed validation" },
+      { cause: manifestResult.error },
     );
   }
+  /* v8 ignore stop */
 
   const manifest = manifestResult.data;
 
@@ -174,8 +183,13 @@ export async function createOBZ(
   for (const board of boards) {
     const result = OBFBoardSchema.safeParse(board);
     if (!result.success) {
-      throw new Error(
-        `Invalid OBZ: board "${board.id}" failed validation — ${result.error.message}`,
+      throw new OBFError(
+        {
+          code: "invalid-board",
+          boardId: board.id,
+          issues: result.error.issues,
+        },
+        { cause: result.error },
       );
     }
     const path = `boards/${result.data.id}.obf`;
@@ -185,9 +199,7 @@ export async function createOBZ(
   if (resources) {
     for (const [path, bytes] of resources) {
       if (entries.has(path)) {
-        throw new Error(
-          `Invalid OBZ: resource path "${path}" collides with a generated board or manifest entry`,
-        );
+        throw new OBFError({ code: "path-collision", path });
       }
       entries.set(path, bytes);
     }
@@ -225,9 +237,12 @@ function collectMediaPaths(
 
       const existing = paths[media.id];
       if (existing !== undefined && existing !== media.path) {
-        throw new Error(
-          `Invalid OBZ: ${kind} id "${media.id}" maps to conflicting paths "${existing}" and "${media.path}"`,
-        );
+        throw new OBFError({
+          code: "conflicting-paths",
+          kind: kind === "images" ? "image" : "sound",
+          mediaId: media.id,
+          paths: [existing, media.path],
+        });
       }
       paths[media.id] = media.path;
     }
@@ -250,9 +265,12 @@ function assertPathsPresent(
 ): void {
   for (const [id, path] of Object.entries(paths)) {
     if (!entries.has(path)) {
-      throw new Error(
-        `Invalid OBZ: ${kind} "${id}" references "${path}" but no matching resource was supplied`,
-      );
+      throw new OBFError({
+        code: "missing-resource",
+        kind,
+        mediaId: id,
+        path,
+      });
     }
   }
 }
@@ -261,7 +279,7 @@ function extractManifest(entries: Map<string, Uint8Array>): OBFManifest {
   const manifestBytes = entries.get("manifest.json");
 
   if (!manifestBytes) {
-    throw new Error("Invalid OBZ: missing manifest.json");
+    throw new OBFError({ code: "missing-manifest" });
   }
 
   const manifestJson = new TextDecoder().decode(manifestBytes);
@@ -279,18 +297,19 @@ function extractBoards(
     const boardBytes = entries.get(path);
 
     if (!boardBytes) {
-      throw new Error(
-        `Invalid OBZ: board "${id}" declared in manifest but missing at path "${path}"`,
-      );
+      throw new OBFError({ code: "missing-board", boardId: id, path });
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
     const board = parseOBF(boardJson);
 
     if (board.id !== id) {
-      throw new Error(
-        `Invalid OBZ: board at "${path}" has id "${board.id}" but the manifest declares it as "${id}"`,
-      );
+      throw new OBFError({
+        code: "board-id-mismatch",
+        path,
+        declaredId: id,
+        actualId: board.id,
+      });
     }
 
     boards.set(id, board);
@@ -300,13 +319,16 @@ function extractBoards(
     }
   }
 
+  // `OBFManifestSchema` requires `root` to be one of `paths.boards`, so the loop
+  // above always assigns `rootBoard` for the validated manifests we receive.
+  /* v8 ignore start -- defensive: OBFManifestSchema guarantees root ∈ paths.boards */
   if (!rootBoard) {
-    // Unreachable for validated manifests: the schema requires `root` to be
-    // listed in `paths.boards`. Kept as a guard for hand-built manifests.
-    throw new Error(
-      `Invalid OBZ: root board "${manifest.root}" not found in paths.boards`,
-    );
+    throw new OBFError({
+      code: "internal",
+      detail: `root board "${manifest.root}" not found in paths.boards`,
+    });
   }
+  /* v8 ignore stop */
 
   return { boards, rootBoard };
 }

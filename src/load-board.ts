@@ -40,8 +40,9 @@ export type LoadedBoard =
  * @param input - A `File` handle or `ArrayBuffer` holding `.obf` or `.obz` content.
  * @returns A discriminated union tagged by `format`.
  *
- * @throws {Error} If an OBZ archive is malformed or its manifest is missing,
- *   or if an OBF board is malformed or fails schema validation.
+ * @throws {@link OBFError} — the OBZ failures of {@link extractOBZ} when the
+ *   input is an archive, or the OBF failures of {@link parseOBF} otherwise.
+ *   Branch on `error.info.code`.
  */
 export async function loadBoard(
   input: File | ArrayBuffer,

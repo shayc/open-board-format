@@ -2,6 +2,7 @@
  * Parsing, validation, and serialization for single `.obf` board files.
  */
 
+import { OBFError } from "./errors";
 import type { OBFBoard } from "./schema";
 import { OBFBoardSchema } from "./schema";
 
@@ -13,22 +14,6 @@ function stripBom(text: string): string {
 }
 
 /**
- * Build a descriptive JSON parse-failure message, preserving the engine's
- * reason when available.
- *
- * @internal Exported for reuse by the OBZ module — not part of the public API.
- */
-export function buildJsonParseErrorMessage(
-  label: string,
-  error: unknown,
-): string {
-  const reason = error instanceof Error ? error.message : "";
-  return reason
-    ? `Invalid ${label}: JSON parse failed — ${reason}`
-    : `Invalid ${label}: JSON parse failed`;
-}
-
-/**
  * Parse a JSON string into a validated OBF board.
  *
  * Strips an optional UTF-8 BOM prefix before parsing and throws a
@@ -37,7 +22,8 @@ export function buildJsonParseErrorMessage(
  * @param json - The JSON string to parse.
  * @returns The validated board object.
  *
- * @throws {Error} If the JSON is malformed or fails schema validation.
+ * @throws {@link OBFError} with `info.code` `"not-json"` if the JSON is
+ *   malformed, or `"invalid-board"` if it fails schema validation.
  */
 export function parseOBF(json: string): OBFBoard {
   const sanitized = stripBom(json);
@@ -47,7 +33,7 @@ export function parseOBF(json: string): OBFBoard {
   try {
     rawBoard = JSON.parse(sanitized) as unknown;
   } catch (error) {
-    throw new Error(buildJsonParseErrorMessage("OBF", error), { cause: error });
+    throw new OBFError({ code: "not-json", source: "board" }, { cause: error });
   }
 
   return validateOBF(rawBoard);
@@ -62,7 +48,8 @@ export function parseOBF(json: string): OBFBoard {
  * @param file - A `File` handle pointing to an `.obf` file.
  * @returns The validated board object.
  *
- * @throws {Error} If the file content is malformed or fails schema validation.
+ * @throws {@link OBFError} with `info.code` `"not-json"` if the file content is
+ *   malformed, or `"invalid-board"` if it fails schema validation.
  */
 export async function loadOBF(file: File): Promise<OBFBoard> {
   const json = await file.text();
@@ -75,13 +62,17 @@ export async function loadOBF(file: File): Promise<OBFBoard> {
  * @param data - The value to validate.
  * @returns The validated board object.
  *
- * @throws {Error} If the value fails schema validation.
+ * @throws {@link OBFError} with `info.code` `"invalid-board"` if the value fails
+ *   schema validation. `info.issues` holds the underlying Zod issues.
  */
 export function validateOBF(data: unknown): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);
 
   if (!result.success) {
-    throw new Error(`Invalid OBF: ${result.error.message}`);
+    throw new OBFError(
+      { code: "invalid-board", issues: result.error.issues },
+      { cause: result.error },
+    );
   }
 
   return result.data;
