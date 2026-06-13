@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   OBFBoardSchema,
@@ -14,12 +13,10 @@ import {
   OBFSpellingActionSchema,
   OBFSymbolInfoSchema,
 } from "./schema";
+import { readFixtureText } from "./test-utils";
 
 const lotsOfStuffExample: unknown = JSON.parse(
-  readFileSync(
-    new URL("../tests/examples/lots-of-stuff.obf", import.meta.url),
-    "utf8",
-  ),
+  readFixtureText("lots-of-stuff.obf"),
 );
 
 describe("OBFIDSchema", () => {

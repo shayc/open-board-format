@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
-import { expectOBFError, expectOBFErrorAsync } from "./test-utils";
+import {
+  expectOBFError,
+  expectOBFErrorAsync,
+  readFixtureArrayBuffer,
+} from "./test-utils";
 import { zip } from "./zip";
 
 describe("parseManifest", () => {
@@ -449,5 +453,114 @@ describe("Integration: createOBZ and extractOBZ", () => {
 
     const extractedBoard2 = extracted.boards.get("board-2");
     expect(extractedBoard2?.buttons[0].label).toBe("Back");
+  });
+});
+
+// Unlike the synthetic round-trips above, this loads a real archive from
+// another tool, covering properties createOBZ output can never have.
+describe("Integration: Real-world OBZ package", () => {
+  const FIXTURE = "lots-of-stuff.obz";
+
+  test("resolves all five boards keyed by manifest id, including id-mismatched filenames", async () => {
+    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+
+    expect(boards.size).toBe(5);
+    expect(boards.get("lots_of_stuff")?.name).toBe("Lots of Stuff Board"); // root_board.obf
+    expect(boards.get("link")?.name).toBe("Linked Board"); // linked_board.obf
+    expect(boards.get("path_images_and_sounds")?.name).toBe(
+      "Path Images and Sounds Board",
+    ); // path_images.obf
+  });
+
+  test("resolves the root board declared by the foreign manifest", async () => {
+    const { rootBoard, boards, manifest } = await extractOBZ(
+      readFixtureArrayBuffer(FIXTURE),
+    );
+
+    expect(manifest.root).toBe("boards/root_board.obf");
+    expect(rootBoard.id).toBe("lots_of_stuff");
+    expect(rootBoard).toBe(boards.get("lots_of_stuff"));
+  });
+
+  test("parses the foreign manifest's path tables faithfully", async () => {
+    const { manifest } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+
+    expect(manifest.format).toBe("open-board-0.1");
+    expect(manifest.paths.boards).toEqual({
+      lots_of_stuff: "boards/root_board.obf",
+      url_images: "boards/url_images.obf",
+      inline_images: "boards/inline_images.obf",
+      path_images_and_sounds: "boards/path_images.obf",
+      link: "boards/linked_board.obf",
+    });
+    expect(manifest.paths.images).toEqual({
+      "9": "images/happy.png",
+      "11": "images/sad.png",
+    });
+    // Two distinct sound ids legitimately map to the same file.
+    expect(manifest.paths.sounds).toEqual({
+      sl3: "sounds/sigh.mp3",
+      ss2: "sounds/sigh.mp3",
+    });
+  });
+
+  test("preserves binary media resources as raw bytes", async () => {
+    const { resources } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+
+    expect(resources.has("manifest.json")).toBe(true);
+    expect(resources.has("boards/root_board.obf")).toBe(true);
+
+    const happy = resources.get("images/happy.png");
+    expect(happy?.byteLength).toBe(30987);
+    // PNG magic number — proves the bytes are the real decompressed image.
+    expect(Array.from(happy?.slice(0, 4) ?? [])).toEqual([
+      0x89, 0x50, 0x4e, 0x47,
+    ]);
+
+    expect(resources.get("images/sad.png")?.byteLength).toBe(26652);
+    expect(resources.get("sounds/sigh.mp3")?.byteLength).toBe(14674);
+  });
+
+  test("preserves load_board navigation links (path-based and remote)", async () => {
+    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const root = boards.get("lots_of_stuff");
+
+    const pathLinks = (root?.buttons ?? [])
+      .map((button) => button.load_board?.path)
+      .filter((path): path is string => path !== undefined);
+    expect(pathLinks).toEqual([
+      "boards/url_images.obf",
+      "boards/inline_images.obf",
+    ]);
+    expect(boards.get("url_images")).toBeDefined();
+
+    const remote = root?.buttons.find(
+      (button) => button.load_board?.url,
+    )?.load_board;
+    expect(remote?.url).toBe("http://www.example.com/load_board");
+    expect(remote?.data_url).toBe(
+      "http://www.example.com/download/load_board.obf?auth=asdfjkl",
+    );
+    expect(remote?.path).toBeUndefined();
+  });
+
+  test("preserves mixed media reference styles and coerces numeric ids", async () => {
+    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+
+    const linkedImages = boards.get("link")?.images ?? [];
+    expect(linkedImages.find((image) => image.id === "i9")?.data).toMatch(
+      /^data:image\/png/,
+    );
+    expect(linkedImages.find((image) => image.id === "i11")?.url).toBeDefined();
+    expect(linkedImages.find((image) => image.id === "i42")?.symbol).toEqual({
+      set: "mypics",
+      filename: "hat.ico",
+    });
+
+    // Numeric image ids in inline_images.obf are coerced to strings.
+    const inlineImageIds = boards
+      .get("inline_images")
+      ?.images?.map((image) => image.id);
+    expect(inlineImageIds).toEqual(["99", "119"]);
   });
 });

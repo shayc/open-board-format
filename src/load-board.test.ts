@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { loadBoard } from "./load-board";
 import { createOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
-import { expectOBFErrorAsync } from "./test-utils";
+import { expectOBFErrorAsync, readFixtureArrayBuffer } from "./test-utils";
 import { zip } from "./zip";
 
 const validBoard: OBFBoard = {
@@ -81,6 +81,17 @@ describe("loadBoard", () => {
     const file = new File(['{ "format": "open-board-0.1", }'], "bad.obf");
 
     expect((await expectOBFErrorAsync(loadBoard(file))).code).toBe("not-json");
+  });
+
+  test("loads the real-world lots-of-stuff.obz package end to end", async () => {
+    const loaded = await loadBoard(readFixtureArrayBuffer("lots-of-stuff.obz"));
+
+    expect(loaded.format).toBe("obz");
+    if (loaded.format !== "obz") {
+      throw new Error("expected obz");
+    }
+    expect(loaded.archive.boards.size).toBe(5);
+    expect(loaded.archive.rootBoard.id).toBe("lots_of_stuff");
   });
 
   test("surfaces the OBZ extractor's error for a ZIP missing its manifest", async () => {
