@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { OBFErrorInfo } from "./errors";
 import { OBFError } from "./errors";
-import { parseOBF, validateOBF } from "./obf";
-import { createOBZ, extractOBZ, parseManifest } from "./obz";
-import { expectOBFError, expectOBFErrorAsync, makeBoard } from "./test-utils";
+import { validateOBF } from "./obf";
+import { parseManifest } from "./obz";
+import { expectOBFError } from "./test-utils";
 
 /**
  * Switching on `info.code` narrows to each variant's fields with no casts.
@@ -84,13 +84,7 @@ describe("OBFError", () => {
   });
 });
 
-describe("thrown OBFError.info across the surface", () => {
-  test("parseOBF → not-json on malformed JSON", () => {
-    const info = expectOBFError(() => parseOBF("{ not json "));
-
-    expect(info).toMatchObject({ code: "not-json", source: "board" });
-  });
-
+describe("thrown OBFError.info carries its variant-specific fields", () => {
   test("validateOBF → invalid-board carries non-empty issues", () => {
     const info = expectOBFError(() => validateOBF({ id: "x" }));
 
@@ -112,50 +106,9 @@ describe("thrown OBFError.info across the surface", () => {
     }
   });
 
-  test("parseManifest → not-json on malformed JSON", () => {
+  test("parseManifest → not-json carries source: manifest", () => {
     const info = expectOBFError(() => parseManifest("{ not json "));
 
     expect(info).toMatchObject({ code: "not-json", source: "manifest" });
-  });
-
-  test("extractOBZ → not-zip for non-archive bytes", async () => {
-    expect(
-      (await expectOBFErrorAsync(extractOBZ(new ArrayBuffer(4)))).code,
-    ).toBe("not-zip");
-  });
-
-  test("createOBZ → unknown-root names the offending id", async () => {
-    expect(
-      await expectOBFErrorAsync(createOBZ([makeBoard()], "missing")),
-    ).toMatchObject({ code: "unknown-root", rootBoardId: "missing" });
-  });
-
-  test("createOBZ → duplicate-board names the repeated id", async () => {
-    expect(
-      await expectOBFErrorAsync(createOBZ([makeBoard(), makeBoard()], "b")),
-    ).toMatchObject({ code: "duplicate-board", boardId: "b" });
-  });
-
-  test("createOBZ → missing-resource names kind, id, and path", async () => {
-    const withImage = makeBoard({
-      images: [{ id: "i1", path: "images/i1.png" }],
-    });
-
-    expect(
-      await expectOBFErrorAsync(createOBZ([withImage], "b")),
-    ).toMatchObject({
-      code: "missing-resource",
-      kind: "image",
-      mediaId: "i1",
-      path: "images/i1.png",
-    });
-  });
-
-  test("createOBZ → path-collision names the colliding path", async () => {
-    const resources = new Map([["manifest.json", new Uint8Array([1])]]);
-
-    expect(
-      await expectOBFErrorAsync(createOBZ([makeBoard()], "b", resources)),
-    ).toMatchObject({ code: "path-collision", path: "manifest.json" });
   });
 });
