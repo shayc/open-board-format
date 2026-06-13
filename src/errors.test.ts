@@ -43,29 +43,39 @@ describe("OBFError", () => {
     expect(error.message.length).toBeGreaterThan(0);
   });
 
-  test("threads `cause` for variants that carry one", () => {
+  test("threads `cause` from constructor options", () => {
     const root = new SyntaxError("boom");
-    const error = new OBFError({
-      code: "not-json",
-      source: "board",
-      cause: root,
-    });
+    const error = new OBFError(
+      { code: "not-json", source: "board" },
+      { cause: root },
+    );
 
     expect(error.cause).toBe(root);
   });
 
-  test("omits `cause` for variants that have none", () => {
+  test("omits `cause` when no options are passed", () => {
     expect(new OBFError({ code: "not-zip" }).cause).toBeUndefined();
   });
 
   test("derives a non-empty message for the zip-failed variant", () => {
-    const error = new OBFError({
-      code: "zip-failed",
-      cause: new Error("boom"),
-    });
+    const error = new OBFError(
+      { code: "zip-failed" },
+      { cause: new Error("boom") },
+    );
 
     expect(error.info.code).toBe("zip-failed");
     expect(error.message).toContain("ZIP archive");
+    expect(error.cause).toBeInstanceOf(Error);
+  });
+
+  test("derives a message for the internal variant from its detail", () => {
+    const error = new OBFError(
+      { code: "internal", detail: "generated manifest failed validation" },
+      { cause: new Error("boom") },
+    );
+
+    expect(error.info.code).toBe("internal");
+    expect(error.message).toContain("generated manifest failed validation");
     expect(error.cause).toBeInstanceOf(Error);
   });
 
@@ -109,6 +119,12 @@ describe("thrown OBFError.info across the surface", () => {
     if (info.code === "invalid-manifest") {
       expect(info.issues.length).toBeGreaterThan(0);
     }
+  });
+
+  test("parseManifest → not-json on malformed JSON", () => {
+    const info = expectOBFError(() => parseManifest("{ not json "));
+
+    expect(info).toMatchObject({ code: "not-json", source: "manifest" });
   });
 
   test("extractOBZ → not-zip for non-archive bytes", async () => {

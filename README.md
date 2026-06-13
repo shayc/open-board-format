@@ -202,13 +202,13 @@ try {
 
 The `code` values, grouped by what they describe:
 
-| Group       | `info.code`         | Key fields                       |
+| Group       | `info.code`         | Key fields (on `info`)           |
 | ----------- | ------------------- | -------------------------------- |
-| Decoding    | `not-json`          | `source`, `cause`                |
+| Decoding    | `not-json`          | `source`                         |
 |             | `not-zip`           | —                                |
-|             | `unreadable-zip`    | `cause`                          |
-| Validation  | `invalid-board`     | `issues`, `cause`, `boardId?`    |
-|             | `invalid-manifest`  | `issues`, `cause`                |
+|             | `unreadable-zip`    | —                                |
+| Validation  | `invalid-board`     | `issues`, `boardId?`             |
+|             | `invalid-manifest`  | `issues`                         |
 | Read (OBZ)  | `missing-manifest`  | —                                |
 |             | `missing-board`     | `boardId`, `path`                |
 |             | `board-id-mismatch` | `path`, `declaredId`, `actualId` |
@@ -217,9 +217,10 @@ The `code` values, grouped by what they describe:
 |             | `missing-resource`  | `kind`, `mediaId`, `path`        |
 |             | `conflicting-paths` | `kind`, `mediaId`, `paths`       |
 |             | `path-collision`    | `path`                           |
-|             | `zip-failed`        | `cause`                          |
+|             | `zip-failed`        | —                                |
+| Internal    | `internal`          | `detail`                         |
 
-`OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling. Validation failures carry the underlying `ZodError` as `error.cause`, so you can call `z.treeifyError(error.cause)` for nested, UI-friendly output; for `not-json` / `*-zip` failures, `cause` is the underlying parser or fflate error. The `issues` array is Zod's issue type, re-exported as `OBFIssue`.
+`OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling. The underlying error, when there is one, is always on the standard `error.cause` — never duplicated on `info`. Validation failures (`invalid-board`, `invalid-manifest`) put the `ZodError` there, so you can call `z.treeifyError(error.cause)` for nested, UI-friendly output, while `info.issues` (Zod's issue type, re-exported as `OBFIssue`) gives you the flat list directly. For `not-json` / `*-zip` failures `error.cause` is the underlying parser or fflate error. An `internal` code signals a bug in this library that callers can't recover from — please report it.
 
 ## Security
 

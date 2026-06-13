@@ -32,7 +32,7 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
 
     fflateUnzip(compressed, (error, entries) => {
       if (error) {
-        reject(new OBFError({ code: "unreadable-zip", cause: error }));
+        reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
         return;
       }
 
@@ -69,7 +69,7 @@ export function zip(
 
     fflateZip(pathToBytes, { level: COMPRESSION_LEVEL }, (error, result) => {
       if (error) {
-        reject(new OBFError({ code: "zip-failed", cause: error }));
+        reject(new OBFError({ code: "zip-failed" }, { cause: error }));
         return;
       }
 

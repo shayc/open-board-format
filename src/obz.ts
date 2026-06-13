@@ -88,17 +88,19 @@ export function parseManifest(json: string): OBFManifest {
   try {
     data = JSON.parse(json) as unknown;
   } catch (error) {
-    throw new OBFError({ code: "not-json", source: "manifest", cause: error });
+    throw new OBFError(
+      { code: "not-json", source: "manifest" },
+      { cause: error },
+    );
   }
 
   const result = OBFManifestSchema.safeParse(data);
 
   if (!result.success) {
-    throw new OBFError({
-      code: "invalid-manifest",
-      issues: result.error.issues,
-      cause: result.error,
-    });
+    throw new OBFError(
+      { code: "invalid-manifest", issues: result.error.issues },
+      { cause: result.error },
+    );
   }
 
   return result.data;
@@ -160,13 +162,14 @@ export async function createOBZ(
     },
   });
 
+  /* v8 ignore start -- defensive: the manifest is built from already-validated inputs */
   if (!manifestResult.success) {
-    throw new OBFError({
-      code: "invalid-manifest",
-      issues: manifestResult.error.issues,
-      cause: manifestResult.error,
-    });
+    throw new OBFError(
+      { code: "internal", detail: "generated manifest failed validation" },
+      { cause: manifestResult.error },
+    );
   }
+  /* v8 ignore stop */
 
   const manifest = manifestResult.data;
 
@@ -180,12 +183,14 @@ export async function createOBZ(
   for (const board of boards) {
     const result = OBFBoardSchema.safeParse(board);
     if (!result.success) {
-      throw new OBFError({
-        code: "invalid-board",
-        boardId: board.id,
-        issues: result.error.issues,
-        cause: result.error,
-      });
+      throw new OBFError(
+        {
+          code: "invalid-board",
+          boardId: board.id,
+          issues: result.error.issues,
+        },
+        { cause: result.error },
+      );
     }
     const path = `boards/${result.data.id}.obf`;
     entries.set(path, encoder.encode(JSON.stringify(result.data, null, 2)));
@@ -316,5 +321,14 @@ function extractBoards(
 
   // `OBFManifestSchema` requires `root` to be one of `paths.boards`, so the loop
   // above always assigns `rootBoard` for the validated manifests we receive.
-  return { boards, rootBoard: rootBoard! };
+  /* v8 ignore start -- defensive: OBFManifestSchema guarantees root ∈ paths.boards */
+  if (!rootBoard) {
+    throw new OBFError({
+      code: "internal",
+      detail: `root board "${manifest.root}" not found in paths.boards`,
+    });
+  }
+  /* v8 ignore stop */
+
+  return { boards, rootBoard };
 }

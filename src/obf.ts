@@ -33,7 +33,7 @@ export function parseOBF(json: string): OBFBoard {
   try {
     rawBoard = JSON.parse(sanitized) as unknown;
   } catch (error) {
-    throw new OBFError({ code: "not-json", source: "board", cause: error });
+    throw new OBFError({ code: "not-json", source: "board" }, { cause: error });
   }
 
   return validateOBF(rawBoard);
@@ -69,11 +69,10 @@ export function validateOBF(data: unknown): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);
 
   if (!result.success) {
-    throw new OBFError({
-      code: "invalid-board",
-      issues: result.error.issues,
-      cause: result.error,
-    });
+    throw new OBFError(
+      { code: "invalid-board", issues: result.error.issues },
+      { cause: result.error },
+    );
   }
 
   return result.data;

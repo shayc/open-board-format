@@ -35,27 +35,24 @@ export type OBFIssue = z.core.$ZodIssue;
 /**
  * Discriminated description of why an {@link OBFError} was thrown.
  *
- * Switch on `code`; each variant carries exactly the fields relevant to it,
- * so there are no "present sometimes" optionals to guess about.
+ * Switch on `code`; each variant carries the fields relevant to it. When a
+ * failure wraps an underlying error it lives on the standard `error.cause`,
+ * never duplicated here. The only optional field is `invalid-board`'s
+ * `boardId`, absent when validation runs on a value with no known id.
  */
 export type OBFErrorInfo =
-  // --- decoding ---
-  /** Input was not parseable JSON. The underlying parse error is in `cause`. */
-  | { code: "not-json"; source: "board" | "manifest"; cause: unknown }
+  // --- decoding (underlying parser/decompressor error on `error.cause`) ---
+  /** Input was not parseable JSON. */
+  | { code: "not-json"; source: "board" | "manifest" }
   /** An OBZ archive was expected, but the bytes are not a ZIP. */
   | { code: "not-zip" }
   /** A ZIP archive could not be decompressed. */
-  | { code: "unreadable-zip"; cause: unknown }
-  // --- validation ---
+  | { code: "unreadable-zip" }
+  // --- validation (underlying `ZodError` on `error.cause`) ---
   /** A board failed schema validation. `boardId` is set when known. */
-  | {
-      code: "invalid-board";
-      boardId?: string;
-      issues: readonly OBFIssue[];
-      cause: z.ZodError;
-    }
+  | { code: "invalid-board"; boardId?: string; issues: readonly OBFIssue[] }
   /** A manifest failed schema validation. */
-  | { code: "invalid-manifest"; issues: readonly OBFIssue[]; cause: z.ZodError }
+  | { code: "invalid-manifest"; issues: readonly OBFIssue[] }
   // --- archive structure (reading an .obz) ---
   /** The archive has no `manifest.json`. */
   | { code: "missing-manifest" }
@@ -90,7 +87,9 @@ export type OBFErrorInfo =
   /** A supplied resource would overwrite a generated board or the manifest. */
   | { code: "path-collision"; path: string }
   /** The archive could not be compressed. */
-  | { code: "zip-failed"; cause: unknown };
+  | { code: "zip-failed" }
+  /** An internal invariant was violated — a bug in this library; please report. */
+  | { code: "internal"; detail: string };
 
 /** Every `code` an {@link OBFError} can carry. */
 export type OBFErrorCode = OBFErrorInfo["code"];
@@ -99,17 +98,15 @@ export type OBFErrorCode = OBFErrorInfo["code"];
  * The single error type thrown by `@shayc/open-board-format`.
  *
  * Branch on {@link OBFError.info} (a discriminated {@link OBFErrorInfo}) rather
- * than parsing {@link OBFError.message}.
+ * than parsing {@link OBFError.message}. Any underlying error — a `JSON.parse`
+ * failure, a `ZodError`, or an fflate error — is on the standard `error.cause`.
  */
 export class OBFError extends Error {
   /** Structured, discriminated description of the failure. */
   readonly info: OBFErrorInfo;
 
-  constructor(info: OBFErrorInfo) {
-    super(
-      formatOBFError(info),
-      "cause" in info ? { cause: info.cause } : undefined,
-    );
+  constructor(info: OBFErrorInfo, options?: { cause?: unknown }) {
+    super(formatOBFError(info), options);
     this.name = "OBFError";
     this.info = info;
   }
@@ -125,9 +122,9 @@ function formatOBFError(info: OBFErrorInfo): string {
     case "unreadable-zip":
       return "ZIP archive could not be read";
     case "invalid-board":
-      return `Invalid OBF${info.boardId ? ` board "${info.boardId}"` : " board"}:\n${z.prettifyError(info.cause)}`;
+      return `Invalid OBF${info.boardId ? ` board "${info.boardId}"` : " board"}:\n${prettifyIssues(info.issues)}`;
     case "invalid-manifest":
-      return `Invalid OBZ manifest:\n${z.prettifyError(info.cause)}`;
+      return `Invalid OBZ manifest:\n${prettifyIssues(info.issues)}`;
     case "missing-manifest":
       return "Invalid OBZ: missing manifest.json";
     case "missing-board":
@@ -146,6 +143,8 @@ function formatOBFError(info: OBFErrorInfo): string {
       return `Invalid OBZ: resource path "${info.path}" collides with a generated board or manifest entry`;
     case "zip-failed":
       return "Failed to build ZIP archive";
+    case "internal":
+      return `Internal error (please report): ${info.detail}`;
     /* v8 ignore start -- exhaustiveness guard: unreachable, enforced at compile time */
     default: {
       const _exhaustive: never = info;
@@ -153,4 +152,9 @@ function formatOBFError(info: OBFErrorInfo): string {
     }
     /* v8 ignore stop */
   }
+}
+
+/** Render schema issues using Zod's pretty formatter. */
+function prettifyIssues(issues: readonly OBFIssue[]): string {
+  return z.prettifyError(new z.ZodError([...issues]));
 }
