@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   OBFBoardSchema,
@@ -13,7 +14,13 @@ import {
   OBFSpellingActionSchema,
   OBFSymbolInfoSchema,
 } from "./schema";
-import lotsOfStuffExample from "../tests/examples/lots_of_stuff.json";
+
+const lotsOfStuffExample: unknown = JSON.parse(
+  readFileSync(
+    new URL("../tests/examples/lots-of-stuff.obf", import.meta.url),
+    "utf8",
+  ),
+);
 
 describe("OBFIDSchema", () => {
   test("coerces numbers to strings", () => {
@@ -582,7 +589,7 @@ describe("OBFManifestSchema", () => {
 });
 
 describe("Integration: Real-world OBF Board", () => {
-  test("validates complete board from lots_of_stuff.json example", () => {
+  test("validates complete board from lots-of-stuff.obf example", () => {
     const result = OBFBoardSchema.safeParse(lotsOfStuffExample);
 
     expect(result.success).toBe(true);
