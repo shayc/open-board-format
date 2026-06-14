@@ -1,6 +1,8 @@
 ---
-"@shayc/open-board-format": minor
+"@shayc/open-board-format": major
 ---
+
+First stable release. The public API — every exported function, type, and Zod schema — is now covered by semver; breaking changes will ship as major versions.
 
 **Breaking:** `zod` is now a peer dependency instead of a bundled dependency. Install it alongside this package:
 

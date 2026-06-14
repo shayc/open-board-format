@@ -240,7 +240,7 @@ What this library deliberately does not do:
 
 ## Versioning
 
-Semver. Pre-1.0: minor releases may contain breaking changes — see [CHANGELOG.md](CHANGELOG.md).
+Semver. The public API — every exported function, type, and Zod schema — is stable; breaking changes ship as major releases. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
