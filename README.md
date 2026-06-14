@@ -10,13 +10,15 @@ A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) �
 - **Browser and Node.js 22+** — pure ESM, works against `File` and `ArrayBuffer`.
 - **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
 - **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
-- **Small footprint** — two runtime dependencies (Zod and [fflate](https://github.com/101arrowz/fflate)), tree-shakeable, no side effects.
+- **Small footprint** — one bundled dependency ([fflate](https://github.com/101arrowz/fflate)) plus Zod as a peer, tree-shakeable, no side effects.
 
 ## Install
 
 ```bash
-npm install @shayc/open-board-format
+npm install @shayc/open-board-format zod
 ```
+
+`zod` 4 is a peer dependency — npm 7+ installs it automatically, but pnpm and Yarn users should add it explicitly (as shown above).
 
 ESM only — CommonJS (`require`) is not supported.
 
