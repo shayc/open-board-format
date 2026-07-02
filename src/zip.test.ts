@@ -91,6 +91,18 @@ describe("unzip", () => {
       "unreadable-zip",
     );
   });
+
+  test("drops directory entries, keeping only file paths", async () => {
+    const files = new Map<string, Uint8Array>([
+      ["folder/", new Uint8Array(0)],
+      ["folder/file.txt", encoder.encode("content")],
+    ]);
+
+    const zipped = await zip(files);
+    const unzipped = await unzip(toArrayBuffer(zipped));
+
+    expect([...unzipped.keys()]).toEqual(["folder/file.txt"]);
+  });
 });
 
 describe("Integration: zip and unzip", () => {
