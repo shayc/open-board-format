@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.0.1
+
+### Patch Changes
+
+- d05391f: Percent-encode board ids into OBZ archive paths, preventing a crafted board id (e.g. containing `../` or `/`) from writing outside the `boards/` directory.
+
 ## 1.0.0
 
 ### Major Changes
