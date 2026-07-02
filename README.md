@@ -90,7 +90,7 @@ const resources = new Map([["images/hello.png", pngBytes]]);
 const blob = await createOBZ([board], "board-1", resources);
 ```
 
-The `manifest.json` is generated for you — boards are written to `boards/<id>.obf`, and `rootBoardId` (the second argument) selects the home board.
+The `manifest.json` is generated for you — boards are written to `boards/<id>.obf` (the id is percent-encoded, so it's always a safe filename), and `rootBoardId` (the second argument) selects the home board.
 
 ### Validate with Zod directly
 
