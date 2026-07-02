@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.0.2
+
+### Patch Changes
+
+- f74dfe8: Drop directory-marker entries (paths ending in `/`) when unzipping, so `extractOBZ`'s `resources` map only ever contains real file content.
+
 ## 1.0.1
 
 ### Patch Changes
