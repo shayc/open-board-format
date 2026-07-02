@@ -26,3 +26,22 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:coverage
       - run: npm run build
+
+  changeset:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require a changeset when src/ changes
+        run: |
+          git fetch origin "${{ github.base_ref }}" --quiet
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- src/ | grep -q .; then
+            if ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- .changeset \
+                | grep -v -E '(config\.json|README\.md)' | grep -q .; then
+              echo "::error::This PR changes src/ but adds no changeset. Run 'npm run changeset' to record a patch/minor/major bump."
+              exit 1
+            fi
+          fi
