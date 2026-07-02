@@ -212,6 +212,18 @@ describe("createOBZ", () => {
     ).toMatchObject({ code: "duplicate-board", boardId: "dup" });
   });
 
+  test.each(["../evil", "a/b", "a\\b"])(
+    "percent-encodes path-like board ids into a safe filename (%s)",
+    async (id) => {
+      const blob = await createOBZ([makeBoard({ id })], id);
+      const extracted = await extractOBZ(await blob.arrayBuffer());
+
+      const path = extracted.manifest.paths.boards[id];
+      expect(path).toMatch(/^boards\/[^/\\]+\.obf$/);
+      expect(extracted.rootBoard.id).toBe(id);
+    },
+  );
+
   test("throws when a supplied board fails schema validation", async () => {
     const invalidBoard = {
       format: "open-board-0.1",

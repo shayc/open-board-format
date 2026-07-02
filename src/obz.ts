@@ -145,7 +145,7 @@ export async function createOBZ(
   const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
   const boardPaths = Object.fromEntries(
-    boards.map((board) => [board.id, `boards/${board.id}.obf`]),
+    boards.map((board) => [board.id, boardPath(board.id)]),
   );
 
   const imagePaths = collectMediaPaths(boards, "images");
@@ -153,7 +153,7 @@ export async function createOBZ(
 
   const manifestResult = OBFManifestSchema.safeParse({
     format: "open-board-0.1",
-    root: `boards/${rootBoardId}.obf`,
+    root: boardPath(rootBoardId),
     paths: {
       boards: boardPaths,
       images: imagePaths,
@@ -191,8 +191,10 @@ export async function createOBZ(
         { cause: result.error },
       );
     }
-    const path = `boards/${result.data.id}.obf`;
-    entries.set(path, encoder.encode(JSON.stringify(result.data, null, 2)));
+    entries.set(
+      boardPaths[result.data.id],
+      encoder.encode(JSON.stringify(result.data, null, 2)),
+    );
   }
 
   if (resources) {
@@ -214,6 +216,19 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Derive a board's archive path from its id.
+ *
+ * Board ids are spec-legal as any non-empty string, but archive paths give
+ * `/` and `\` structural meaning. Percent-encoding the id keeps the mapping
+ * deterministic and collision-free without rejecting any id the schema
+ * already allows — a `/` or `..` in the id just becomes part of a filename,
+ * never a path segment.
+ */
+function boardPath(id: string): string {
+  return `boards/${encodeURIComponent(id)}.obf`;
+}
 
 /**
  * Walk every board's media collection and produce the `{ id -> path }` map
