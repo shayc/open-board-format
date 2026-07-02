@@ -237,6 +237,7 @@ What this library deliberately does not do:
 - **No network I/O** — media referenced by `url` or `data_url` is not fetched; resolving external media is up to you.
 - **No rendering** — it parses and validates data; drawing boards and playing sounds belong to your app.
 - **No extraction limits or path sanitization** — see [Security](#security) before writing archive contents to disk.
+- **No referential integrity checks** — a `grid.order` id with no matching button, or an `image_id`/`sound_id` with no matching image/sound, is not flagged. Resolving references is up to your rendering layer.
 
 ## Versioning
 

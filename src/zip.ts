@@ -20,6 +20,10 @@ const COMPRESSION_LEVEL = 6;
 /**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
+ * Directory entries (paths ending in `/`, which some tools write explicitly
+ * even though ZIP doesn't require them) are dropped — they carry no content
+ * and this map is documented as file paths to bytes.
+ *
  * @param archive - The ZIP archive as an `ArrayBuffer`.
  * @returns A map of file paths to their decompressed content.
  *
@@ -36,7 +40,9 @@ export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
         return;
       }
 
-      const pathToBytes = new Map<string, Uint8Array>(Object.entries(entries));
+      const pathToBytes = new Map(
+        Object.entries(entries).filter(([path]) => !path.endsWith("/")),
+      );
 
       resolve(pathToBytes);
     });
