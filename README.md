@@ -6,11 +6,24 @@
 
 A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) — the open standard for Augmentative and Alternative Communication (AAC) boards. OBF (`.obf`) is a JSON file describing a single communication board: buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more boards with their media and a `manifest.json`. This package parses, validates, and creates both.
 
+```
+my-board.obz
+├── manifest.json        ← table of contents: root board + id-to-path maps
+├── boards/
+│   └── home.obf         ← one JSON board per file
+├── images/
+│   └── dog.png
+└── sounds/
+    └── hello.mp3
+```
+
 - **Typed end to end** — every type is inferred from a [Zod](https://zod.dev/) schema, and every schema is exported for `safeParse` or composing into your own contracts.
 - **Browser and Node.js 22+** — pure ESM, works against `File` and `ArrayBuffer`.
 - **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
 - **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
 - **Small footprint** — one runtime dependency ([fflate](https://github.com/101arrowz/fflate)) plus Zod as a peer, tree-shakeable, no side effects.
+
+**Contents:** [Install](#install) · [Quick start](#quick-start) · [Usage](#usage) · [API](#api) · [Errors](#errors) · [Security](#security) · [Scope](#scope) · [Versioning](#versioning) · [Contributing](#contributing) · [Related](#related) · [License](#license)
 
 ## Install
 
@@ -38,6 +51,18 @@ if (loaded.format === "obf") {
 ```
 
 `loadBoard` accepts a `File` or `ArrayBuffer` and throws on invalid input (see [Errors](#errors)). Already holding a JSON string? `parseOBF(json)` returns a validated `OBFBoard` directly.
+
+In Node.js, read the file to a buffer first — there's no `File` API outside the browser:
+
+```ts
+import { readFile } from "node:fs/promises";
+import { loadBoard } from "@shayc/open-board-format";
+
+const { buffer, byteOffset, byteLength } = await readFile("my-board.obz");
+const loaded = await loadBoard(
+  buffer.slice(byteOffset, byteOffset + byteLength),
+);
+```
 
 ## Usage
 
@@ -112,35 +137,35 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### OBF (single board)
 
-| Function              | Description                                                  |
-| --------------------- | ------------------------------------------------------------ |
-| `parseOBF(json)`      | Parse a JSON string into a validated `OBFBoard`              |
-| `validateOBF(data)`   | Validate an unknown object as `OBFBoard` (throws on failure) |
-| `stringifyOBF(board)` | Serialize an `OBFBoard` to a JSON string                     |
-| `loadOBF(file)`       | Load an `OBFBoard` from a browser `File`                     |
+| Function              | Returns             | Description                                                  |
+| --------------------- | ------------------- | ------------------------------------------------------------ |
+| `parseOBF(json)`      | `OBFBoard`          | Parse a JSON string into a validated `OBFBoard`              |
+| `validateOBF(data)`   | `OBFBoard`          | Validate an unknown object as `OBFBoard` (throws on failure) |
+| `stringifyOBF(board)` | `string`            | Serialize an `OBFBoard` to a JSON string                     |
+| `loadOBF(file)`       | `Promise<OBFBoard>` | Load an `OBFBoard` from a browser `File`                     |
 
 ### OBZ (board package)
 
-| Function                                     | Description                                                               |
-| -------------------------------------------- | ------------------------------------------------------------------------- |
-| `loadOBZ(file)`                              | Load an OBZ package from a browser `File`                                 |
-| `extractOBZ(archive)`                        | Extract boards, manifest, root board, and resources from an `ArrayBuffer` |
-| `createOBZ(boards, rootBoardId, resources?)` | Create an OBZ package as a `Blob`                                         |
-| `parseManifest(json)`                        | Parse a `manifest.json` string into a validated `OBFManifest`             |
+| Function                                     | Returns              | Description                                                               |
+| -------------------------------------------- | -------------------- | ------------------------------------------------------------------------- |
+| `loadOBZ(file)`                              | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                 |
+| `extractOBZ(archive)`                        | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from an `ArrayBuffer` |
+| `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Create an OBZ package as a `Blob`                                         |
+| `parseManifest(json)`                        | `OBFManifest`        | Parse a `manifest.json` string into a validated `OBFManifest`             |
 
 ### Format detection
 
-| Function           | Description                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| `loadBoard(input)` | Detect OBF vs OBZ from a `File` or `ArrayBuffer` and load it; returns a `LoadedBoard` union |
+| Function           | Returns                | Description                                                                                 |
+| ------------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
+| `loadBoard(input)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File` or `ArrayBuffer` and load it; returns a `LoadedBoard` union |
 
 ### Utilities
 
-| Function         | Description                                              |
-| ---------------- | -------------------------------------------------------- |
-| `isZip(archive)` | Check if an `ArrayBuffer` starts with a ZIP magic number |
-| `zip(entries)`   | Create a ZIP from a map of paths to buffers              |
-| `unzip(archive)` | Extract a ZIP into a map of paths to `Uint8Array`        |
+| Function         | Returns                            | Description                                              |
+| ---------------- | ---------------------------------- | -------------------------------------------------------- |
+| `isZip(archive)` | `boolean`                          | Check if an `ArrayBuffer` starts with a ZIP magic number |
+| `zip(entries)`   | `Promise<Uint8Array>`              | Create a ZIP from a map of paths to buffers              |
+| `unzip(archive)` | `Promise<Map<string, Uint8Array>>` | Extract a ZIP into a map of paths to `Uint8Array`        |
 
 ### Types
 
@@ -222,7 +247,14 @@ The `code` values, grouped by what they describe:
 |             | `zip-failed`        | —                                |
 | Internal    | `internal`          | `detail`                         |
 
-`OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling. The underlying error, when there is one, is always on the standard `error.cause` — never duplicated on `info`. Validation failures (`invalid-board`, `invalid-manifest`) put the `ZodError` there, so you can call `z.treeifyError(error.cause)` for nested, UI-friendly output, while `info.issues` (Zod's issue type, re-exported as `OBFIssue`) gives you the flat list directly. For `not-json` / `*-zip` failures `error.cause` is the underlying parser or fflate error. An `internal` code signals a bug in this library that callers can't recover from — please report it.
+`OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling.
+
+- The underlying error, when there is one, is always on the standard `error.cause` — never duplicated on `info`.
+- Validation failures (`invalid-board`, `invalid-manifest`) put the `ZodError` on `error.cause`, so `z.treeifyError(error.cause)` gives nested, UI-friendly output, while `info.issues` (Zod's issue type, re-exported as `OBFIssue`) gives you the flat list directly.
+- For `not-json` / `*-zip` failures, `error.cause` is the underlying parser or fflate error.
+- An `internal` code signals a bug in this library that callers can't recover from — please report it.
+
+**Re-zipping an extracted `.obz` by hand?** Zip the folder's _contents_, not the folder itself. If `manifest.json` ends up nested inside a top-level folder in the archive, extraction fails with `missing-manifest` even though the file is right there.
 
 ## Security
 
