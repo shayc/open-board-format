@@ -79,6 +79,9 @@ const { rootBoard, boards, resources } = await loadOBZ(file);
 
 // Or from anything else — ArrayBuffer, Blob, Node Buffer, etc.
 const parsed = await extractOBZ(buffer);
+
+// Untrusted input? Cap declared uncompressed sizes (see Security)
+const guarded = await extractOBZ(buffer, { maxTotalOriginalSize: 500e6 });
 ```
 
 `rootBoard` is the package's home board — the one `manifest.root` points at, already resolved. `boards` is keyed by board ID and `resources` by archive path; the `manifest` is also returned if you need the raw table of contents.
@@ -145,54 +148,55 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 | Function                                     | Returns              | Description                                                                                                   |
 | -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `loadOBZ(file)`                              | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                                                     |
-| `extractOBZ(archive)`                        | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from a `File`, `Blob`, `ArrayBuffer`, or typed-array view |
+| `loadOBZ(file, limits?)`                     | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                                                     |
+| `extractOBZ(archive, limits?)`               | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from a `File`, `Blob`, `ArrayBuffer`, or typed-array view |
 | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Create an OBZ package as a `Blob`                                                                             |
 | `parseManifest(json)`                        | `OBFManifest`        | Parse a `manifest.json` string into a validated `OBFManifest`                                                 |
 
 ### Format detection
 
-| Function           | Returns                | Description                                                                                                            |
-| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `loadBoard(input)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File`, `Blob`, `ArrayBuffer`, or typed-array view and load it; returns a `LoadedBoard` union |
+| Function                    | Returns                | Description                                                                                                            |
+| --------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `loadBoard(input, limits?)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File`, `Blob`, `ArrayBuffer`, or typed-array view and load it; returns a `LoadedBoard` union |
 
 ### Utilities
 
-| Function         | Returns                            | Description                                              |
-| ---------------- | ---------------------------------- | -------------------------------------------------------- |
-| `isZip(archive)` | `boolean`                          | Check if an `ArrayBuffer` starts with a ZIP magic number |
-| `zip(entries)`   | `Promise<Uint8Array>`              | Create a ZIP from a map of paths to buffers              |
-| `unzip(archive)` | `Promise<Map<string, Uint8Array>>` | Extract a ZIP into a map of paths to `Uint8Array`        |
+| Function                  | Returns                            | Description                                              |
+| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| `isZip(archive)`          | `boolean`                          | Check if an `ArrayBuffer` starts with a ZIP magic number |
+| `zip(entries)`            | `Promise<Uint8Array>`              | Create a ZIP from a map of paths to buffers              |
+| `unzip(archive, limits?)` | `Promise<Map<string, Uint8Array>>` | Extract a ZIP into a map of paths to `Uint8Array`        |
 
 ### Types
 
-| Type                  | Description                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `OBFBoard`            | A single communication board                                                                |
-| `OBFGrid`             | Grid layout (rows, columns, order)                                                          |
-| `OBFButton`           | A button on the board                                                                       |
-| `OBFButtonAction`     | Button action (spelling or specialty)                                                       |
-| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                                |
-| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                           |
-| `OBFLoadBoard`        | Reference to load another board                                                             |
-| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                                |
-| `OBFImage`            | An image resource (extends `OBFMedia`)                                                      |
-| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                      |
-| `OBFSymbolInfo`       | Symbol set reference                                                                        |
-| `OBFManifest`         | OBZ package manifest                                                                        |
-| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, rootBoard, resources }`      |
-| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`       |
-| `BinaryInput`         | Input type of `loadBoard` / `extractOBZ` — `File \| Blob \| ArrayBuffer \| ArrayBufferView` |
-| `OBFID`               | Unique identifier (string, coerced from number)                                             |
-| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                              |
-| `OBFLicense`          | Licensing information                                                                       |
-| `OBFLocaleCode`       | BCP 47 locale code                                                                          |
-| `OBFLocalizedStrings` | Key-value string translations                                                               |
-| `OBFStrings`          | Multi-locale string translations                                                            |
+| Type                  | Description                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                                                                   |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                                                             |
+| `OBFButton`           | A button on the board                                                                                          |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                                                          |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                                                   |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                                              |
+| `OBFLoadBoard`        | Reference to load another board                                                                                |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                                                   |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                                                         |
+| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                                         |
+| `OBFSymbolInfo`       | Symbol set reference                                                                                           |
+| `OBFManifest`         | OBZ package manifest                                                                                           |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, rootBoard, resources }`                         |
+| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`                          |
+| `BinaryInput`         | Input type of `loadBoard` / `extractOBZ` — `File \| Blob \| ArrayBuffer \| ArrayBufferView`                    |
+| `UnzipLimits`         | Optional extraction caps — `{ maxEntrySize?, maxTotalOriginalSize?, maxEntries? }` (see [Security](#security)) |
+| `OBFID`               | Unique identifier (string, coerced from number)                                                                |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                                                 |
+| `OBFLicense`          | Licensing information                                                                                          |
+| `OBFLocaleCode`       | BCP 47 locale code                                                                                             |
+| `OBFLocalizedStrings` | Key-value string translations                                                                                  |
+| `OBFStrings`          | Multi-locale string translations                                                                               |
 
 ### Schemas
 
-Every type above except `ParsedOBZ`, `LoadedBoard`, and `BinaryInput` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
+Every type above except `ParsedOBZ`, `LoadedBoard`, `BinaryInput`, and `UnzipLimits` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
 
 ```ts
 import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
@@ -227,23 +231,24 @@ try {
 
 The `code` values, grouped by what they describe:
 
-| Group       | `info.code`         | Key fields (on `info`)           |
-| ----------- | ------------------- | -------------------------------- |
-| Decoding    | `not-json`          | `source`                         |
-|             | `not-zip`           | —                                |
-|             | `unreadable-zip`    | —                                |
-| Validation  | `invalid-board`     | `issues`, `boardId?`             |
-|             | `invalid-manifest`  | `issues`                         |
-| Read (OBZ)  | `missing-manifest`  | —                                |
-|             | `missing-board`     | `boardId`, `path`                |
-|             | `board-id-mismatch` | `path`, `declaredId`, `actualId` |
-| Write (OBZ) | `unknown-root`      | `rootBoardId`                    |
-|             | `duplicate-board`   | `boardId`                        |
-|             | `missing-resource`  | `kind`, `mediaId`, `path`        |
-|             | `conflicting-paths` | `kind`, `mediaId`, `paths`       |
-|             | `path-collision`    | `path`                           |
-|             | `zip-failed`        | —                                |
-| Internal    | `internal`          | `detail`                         |
+| Group       | `info.code`         | Key fields (on `info`)                        |
+| ----------- | ------------------- | --------------------------------------------- |
+| Decoding    | `not-json`          | `source`                                      |
+|             | `not-zip`           | —                                             |
+|             | `unreadable-zip`    | —                                             |
+|             | `archive-too-large` | `limit`, `path`, and the tripped cap's fields |
+| Validation  | `invalid-board`     | `issues`, `boardId?`                          |
+|             | `invalid-manifest`  | `issues`                                      |
+| Read (OBZ)  | `missing-manifest`  | —                                             |
+|             | `missing-board`     | `boardId`, `path`                             |
+|             | `board-id-mismatch` | `path`, `declaredId`, `actualId`              |
+| Write (OBZ) | `unknown-root`      | `rootBoardId`                                 |
+|             | `duplicate-board`   | `boardId`                                     |
+|             | `missing-resource`  | `kind`, `mediaId`, `path`                     |
+|             | `conflicting-paths` | `kind`, `mediaId`, `paths`                    |
+|             | `path-collision`    | `path`                                        |
+|             | `zip-failed`        | —                                             |
+| Internal    | `internal`          | `detail`                                      |
 
 `OBFErrorInfo` and `OBFErrorCode` are exported for exhaustive handling.
 
@@ -256,7 +261,19 @@ The `code` values, grouped by what they describe:
 
 ## Security
 
-OBZ archives are untrusted input. This library does not enforce limits on entry size or count, and does not sanitize entry paths — if you write extracted resources to disk, validate paths yourself first to avoid directory traversal. For stronger guarantees against zip-bomb-style payloads, run extraction in a sandboxed context (Web Worker, isolated process).
+OBZ archives are untrusted input. To guard against zip bombs, pass `UnzipLimits` to `loadBoard` / `loadOBZ` / `extractOBZ` / `unzip`:
+
+```ts
+const parsed = await extractOBZ(buffer, {
+  maxEntrySize: 100e6, // any single entry, in bytes
+  maxTotalOriginalSize: 500e6, // sum of all entries, in bytes
+  maxEntries: 10_000, // entry count, including directory entries
+});
+```
+
+Size limits are checked against the uncompressed sizes declared in the archive's ZIP metadata, before any inflation happens; `maxEntries` caps how many entries are processed at all. Exceeding a limit aborts extraction and rejects with an `OBFError` whose code is `archive-too-large` (`info` carries `limit`, the entry `path` that tripped it, and `maxBytes`/`declaredBytes` for the size limits or `maxEntries`/`entryCount` for the count). No limits are applied by default. A lying header can't force larger allocations — fflate allocates output buffers at exactly the declared size — so the declared-size caps bound memory use.
+
+Entry paths are not sanitized — if you write extracted resources to disk, validate paths yourself first to avoid directory traversal.
 
 Found a security issue? Open a private advisory at [github.com/shayc/open-board-format/security/advisories/new](https://github.com/shayc/open-board-format/security/advisories/new).
 
@@ -266,7 +283,7 @@ What this library deliberately does not do:
 
 - **No network I/O** — media referenced by `url` or `data_url` is not fetched; resolving external media is up to you.
 - **No rendering** — it parses and validates data; drawing boards and playing sounds belong to your app.
-- **No extraction limits or path sanitization** — see [Security](#security) before writing archive contents to disk.
+- **No default extraction limits, no path sanitization** — size caps are opt-in via `UnzipLimits`; see [Security](#security) before writing archive contents to disk.
 - **No referential integrity checks** — a `grid.order` id with no matching button, or an `image_id`/`sound_id` with no matching image/sound, is not flagged. Resolving references is up to your rendering layer.
 
 ## Versioning

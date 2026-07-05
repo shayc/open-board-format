@@ -176,6 +176,32 @@ describe("extractOBZ", () => {
       actualId: "a",
     });
   });
+
+  test("rejects with archive-too-large when limits are exceeded", async () => {
+    const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
+
+    const info = await expectOBFErrorAsync(
+      extractOBZ(await obzBlob.arrayBuffer(), { maxTotalOriginalSize: 10 }),
+    );
+
+    expect(info.code).toBe("archive-too-large");
+  });
+
+  test("extracts the same archive with generous limits as without", async () => {
+    const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
+    const buffer = await obzBlob.arrayBuffer();
+
+    const limited = await extractOBZ(buffer, {
+      maxEntrySize: Number.MAX_SAFE_INTEGER,
+      maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+    });
+    const unlimited = await extractOBZ(buffer);
+
+    expect(limited.manifest).toEqual(unlimited.manifest);
+    expect(limited.boards).toEqual(unlimited.boards);
+    expect(limited.rootBoard).toEqual(unlimited.rootBoard);
+    expect(limited.resources).toEqual(unlimited.resources);
+  });
 });
 
 describe("loadOBZ", () => {
@@ -188,6 +214,17 @@ describe("loadOBZ", () => {
     expect(result.manifest.root).toBe("boards/test.obf");
     expect(result.boards.get("test")).toBeDefined();
     expect(result.rootBoard.id).toBe("test");
+  });
+
+  test("passes limits through to extraction", async () => {
+    const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
+    const file = new File([obzBlob], "test.obz", { type: "application/zip" });
+
+    const info = await expectOBFErrorAsync(
+      loadOBZ(file, { maxTotalOriginalSize: 10 }),
+    );
+
+    expect(info.code).toBe("archive-too-large");
   });
 });
 

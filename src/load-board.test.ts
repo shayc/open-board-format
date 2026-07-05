@@ -104,6 +104,29 @@ describe("loadBoard", () => {
     expect(loaded.archive.rootBoard.id).toBe("lots_of_stuff");
   });
 
+  test("passes limits through when the input is an OBZ archive", async () => {
+    const obzBlob = await createOBZ([validBoard], "test-board");
+    const file = new File([obzBlob], "test.obz");
+
+    const info = await expectOBFErrorAsync(
+      loadBoard(file, { maxTotalOriginalSize: 10 }),
+    );
+    expect(info.code).toBe("archive-too-large");
+
+    const loaded = await loadBoard(file, {
+      maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+    });
+    expect(loaded.format).toBe("obz");
+  });
+
+  test("ignores limits for plain OBF input", async () => {
+    const file = new File([JSON.stringify(validBoard)], "test.obf");
+
+    const loaded = await loadBoard(file, { maxTotalOriginalSize: 1 });
+
+    expect(loaded).toEqual({ format: "obf", board: validBoard });
+  });
+
   test("surfaces the OBZ extractor's error for a ZIP missing its manifest", async () => {
     // A real ZIP so isZip passes and we exercise the OBZ branch, not the OBF one.
     const zipped = await zip(

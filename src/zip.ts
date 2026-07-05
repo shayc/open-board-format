@@ -2,6 +2,7 @@
  * Minimal ZIP helpers over fflate: signature sniffing, unzip, and zip.
  */
 
+import type { UnzipFileInfo } from "fflate";
 import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
 import { OBFError } from "./errors";
 
@@ -47,6 +48,21 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
 }
 
 /**
+ * Optional caps on declared uncompressed sizes, checked before inflation.
+ *
+ * The declared sizes come from the archive's ZIP metadata, so oversized input
+ * is rejected before any decompression work or output allocation happens.
+ */
+export interface UnzipLimits {
+  /** Max declared uncompressed size of any single entry, in bytes. */
+  maxEntrySize?: number;
+  /** Max sum of declared uncompressed sizes across all entries, in bytes. */
+  maxTotalOriginalSize?: number;
+  /** Max number of entries, counting directory entries the archive declares. */
+  maxEntries?: number;
+}
+
+/**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
  * Directory entries (paths ending in `/`, which some tools write explicitly
@@ -54,27 +70,105 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
  * and this map is documented as file paths to bytes.
  *
  * @param archive - The ZIP archive as an `ArrayBuffer`.
+ * @param limits - Optional {@link UnzipLimits} checked against declared
+ *   (metadata) sizes before inflation. No limits are applied by default.
  * @returns A map of file paths to their decompressed content.
  *
  * @throws {@link OBFError} with `info.code` `"unreadable-zip"` if the archive is
- *   corrupt or cannot be decompressed.
+ *   corrupt or cannot be decompressed, or `"archive-too-large"` if a limit in
+ *   `limits` is exceeded.
  */
-export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+export function unzip(
+  archive: ArrayBuffer,
+  limits?: UnzipLimits,
+): Promise<Map<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
     const compressed = new Uint8Array(archive);
+    const { maxEntrySize, maxTotalOriginalSize, maxEntries } = limits ?? {};
 
-    fflateUnzip(compressed, (error, entries) => {
-      if (error) {
-        reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
-        return;
+    let limitError: OBFError | undefined;
+    let settled = false;
+    let totalDeclared = 0;
+    let entryCount = 0;
+
+    const filter = (file: UnzipFileInfo): boolean => {
+      if (limitError) {
+        return false; // limit tripped: skip the rest cheaply
       }
 
-      const pathToBytes = new Map(
-        Object.entries(entries).filter(([path]) => !path.endsWith("/")),
-      );
+      entryCount += 1;
+      if (maxEntries !== undefined && entryCount > maxEntries) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxEntries",
+          maxEntries,
+          entryCount,
+          path: file.name,
+        });
+        return false;
+      }
 
-      resolve(pathToBytes);
-    });
+      if (maxEntrySize !== undefined && file.originalSize > maxEntrySize) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxEntrySize",
+          maxBytes: maxEntrySize,
+          declaredBytes: file.originalSize,
+          path: file.name,
+        });
+        return false;
+      }
+
+      totalDeclared += file.originalSize;
+      if (
+        maxTotalOriginalSize !== undefined &&
+        totalDeclared > maxTotalOriginalSize
+      ) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxTotalOriginalSize",
+          maxBytes: maxTotalOriginalSize,
+          declaredBytes: totalDeclared,
+          path: file.name,
+        });
+        return false;
+      }
+
+      return true;
+    };
+
+    const terminate = fflateUnzip(
+      compressed,
+      limits ? { filter } : {},
+      (error, entries) => {
+        // After a limit trips, fflate still fires this with partial entries
+        // on a later microtask — the settled guard makes that a no-op.
+        if (settled) {
+          return;
+        }
+        settled = true;
+
+        if (error) {
+          reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
+          return;
+        }
+
+        const pathToBytes = new Map(
+          Object.entries(entries).filter(([path]) => !path.endsWith("/")),
+        );
+
+        resolve(pathToBytes);
+      },
+    );
+
+    // fflate runs every filter call synchronously inside fflateUnzip and
+    // defers its callback to a microtask, so limitError is final here and
+    // nothing can have settled yet.
+    if (limitError) {
+      settled = true;
+      terminate(); // kill any dispatched async inflate workers
+      reject(limitError);
+    }
   });
 }
 

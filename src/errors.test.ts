@@ -59,6 +59,44 @@ describe("OBFError", () => {
     expect(error.cause).toBeInstanceOf(Error);
   });
 
+  test("derives a message for the archive-too-large maxEntries limit", () => {
+    const error = new OBFError({
+      code: "archive-too-large",
+      limit: "maxEntries",
+      maxEntries: 2,
+      entryCount: 3,
+      path: "sounds/extra.mp3",
+    });
+
+    expect(error.message).toBe(
+      'Invalid OBZ: entry count reached 3 at "sounds/extra.mp3", exceeding the 2-entry limit',
+    );
+  });
+
+  test("derives messages for the archive-too-large size limits", () => {
+    const entryError = new OBFError({
+      code: "archive-too-large",
+      limit: "maxEntrySize",
+      maxBytes: 50,
+      declaredBytes: 100,
+      path: "images/big.png",
+    });
+    expect(entryError.message).toBe(
+      'Invalid OBZ: entry "images/big.png" declares 100 bytes uncompressed, exceeding the 50-byte per-entry limit',
+    );
+
+    const totalError = new OBFError({
+      code: "archive-too-large",
+      limit: "maxTotalOriginalSize",
+      maxBytes: 100,
+      declaredBytes: 120,
+      path: "sounds/last.mp3",
+    });
+    expect(totalError.message).toBe(
+      'Invalid OBZ: declared uncompressed size reached 120 bytes at "sounds/last.mp3", exceeding the 100-byte total limit',
+    );
+  });
+
   test("derives a message for the internal variant from its detail", () => {
     const error = new OBFError(
       { code: "internal", detail: "generated manifest failed validation" },

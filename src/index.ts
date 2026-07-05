@@ -62,4 +62,4 @@ export type { LoadedBoard } from "./load-board";
 
 // ZIP helpers
 export { isZip, unzip, zip } from "./zip";
-export type { BinaryInput } from "./zip";
+export type { BinaryInput, UnzipLimits } from "./zip";
