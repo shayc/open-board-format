@@ -42,6 +42,7 @@ export interface ParsedOBZ {
  *
  * @throws {@link OBFError} — the same failures as {@link extractOBZ}, which
  *   this delegates to.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export async function loadOBZ(
   file: File,
@@ -66,6 +67,7 @@ export async function loadOBZ(
  *   exceeded), `"missing-manifest"`, `"not-json"` or `"invalid-manifest"`
  *   (bad manifest), `"missing-board"`, `"board-id-mismatch"`, or
  *   `"invalid-board"` (a board fails validation).
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export async function extractOBZ(
   archive: BinaryInput,

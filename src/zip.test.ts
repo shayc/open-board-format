@@ -255,14 +255,14 @@ describe("unzip limits", () => {
     },
   );
 
-  test("rejects with unreadable-zip, not archive-too-large, when a corrupt entry precedes a limit trip", async () => {
+  test("rejects with unreadable-zip, not archive-too-large, when a synchronously-inflated corrupt entry precedes a limit trip", async () => {
+    // Both entries stay under fflate's 512 KB sync-inflate threshold; see the terminate() comment in unzip() for the async case this doesn't cover.
     const zipped = await zip(filesOf(1_000, 200_000));
     const buffer = bytesToArrayBuffer(zipped);
     const bytes = new Uint8Array(buffer);
     const view = new DataView(buffer);
 
-    // Local header: "PK\x03\x04" at offset 0; name length (u16 LE) at 26, extra length at 28;
-    // entry 1's compressed data starts right after the header + name + extra.
+    // Local header offsets: name length (u16 LE) at 26, extra length at 28.
     const dataStart = 30 + view.getUint16(26, true) + view.getUint16(28, true);
     bytes.fill(0xff, dataStart + 2, dataStart + 10);
 

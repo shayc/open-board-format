@@ -186,6 +186,7 @@ export function unzip(
 
     if (limitError) {
       const error = limitError;
+      // Deliberate: this can pre-empt an in-flight entry's own corruption error, surfacing archive-too-large instead of unreadable-zip.
       terminate(); // kill any dispatched async inflate workers
       // Deferred so an archive error fflate queued during its sync pass settles first.
       queueMicrotask(() => {

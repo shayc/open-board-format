@@ -47,6 +47,8 @@ export type LoadedBoard =
  * @throws {@link OBFError} — the OBZ failures of {@link extractOBZ} when the
  *   input is an archive, or the OBF failures of {@link parseOBF} otherwise.
  *   Branch on `error.info.code`.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN` and the
+ *   input is an OBZ archive.
  */
 export async function loadBoard(
   input: BinaryInput,
