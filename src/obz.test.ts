@@ -60,6 +60,16 @@ describe("extractOBZ", () => {
     });
   });
 
+  test("extracts a valid OBZ archive from a Uint8Array directly, with no ArrayBuffer conversion", async () => {
+    const helloBoard = makeBoard({ id: "test" });
+    const obzBlob = await createOBZ([helloBoard], "test");
+    const bytes = new Uint8Array(await obzBlob.arrayBuffer());
+
+    const result = await extractOBZ(bytes);
+
+    expect(result.rootBoard.id).toBe("test");
+  });
+
   test("throws for non-ZIP input", async () => {
     const notZip = new ArrayBuffer(10);
 
@@ -317,12 +327,12 @@ describe("createOBZ", () => {
     ).toMatchObject({ code: "path-collision", path: "boards/b.obf" });
   });
 
-  test("omits sounds map when no sounds have paths", async () => {
+  test("includes empty images and sounds maps when neither have paths", async () => {
     const extracted = await extractOBZ(
       await (await createOBZ([makeBoard()], "b")).arrayBuffer(),
     );
 
-    expect(extracted.manifest.paths.sounds).toBeUndefined();
+    expect(extracted.manifest.paths.sounds).toEqual({});
     expect(extracted.manifest.paths.images).toEqual({});
   });
 
@@ -410,11 +420,11 @@ describe("Integration: createOBZ and extractOBZ", () => {
     expect(extracted.boards.size).toBe(2);
 
     const extractedBoard1 = extracted.boards.get("board-1");
-    expect(extractedBoard1?.buttons[0].label).toBe("Go to 2");
-    expect(extractedBoard1?.buttons[0].load_board?.id).toBe("board-2");
+    expect(extractedBoard1?.buttons[0]?.label).toBe("Go to 2");
+    expect(extractedBoard1?.buttons[0]?.load_board?.id).toBe("board-2");
 
     const extractedBoard2 = extracted.boards.get("board-2");
-    expect(extractedBoard2?.buttons[0].label).toBe("Back");
+    expect(extractedBoard2?.buttons[0]?.label).toBe("Back");
   });
 });
 

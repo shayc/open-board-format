@@ -240,9 +240,15 @@ export const OBFButtonSchema = z
     actions: z.array(OBFButtonActionSchema).optional(),
     /** Information to load another board when this button is activated. */
     load_board: OBFLoadBoardSchema.optional(),
-    /** Background color of the button in `rgb` or `rgba` format. */
+    /**
+     * Background color of the button, typically `rgb`/`rgba`. Not
+     * strictly validated — any string is accepted.
+     */
     background_color: z.string().optional(),
-    /** Border color of the button in `rgb` or `rgba` format. */
+    /**
+     * Border color of the button, typically `rgb`/`rgba`. Not strictly
+     * validated — any string is accepted.
+     */
     border_color: z.string().optional(),
     /** Vertical position for absolute positioning (0.0 to 1.0). */
     top: z.number().min(0).max(1).optional(),

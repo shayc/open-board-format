@@ -18,6 +18,35 @@ const ZIP_MAGIC = [0x50, 0x4b] as const;
 const COMPRESSION_LEVEL = 6;
 
 /**
+ * Anything this package accepts as binary board data: a raw buffer, any
+ * typed-array view into one (including Node's `Buffer`), or a `File`/`Blob`
+ * handle.
+ */
+export type BinaryInput = File | Blob | ArrayBuffer | ArrayBufferView;
+
+/**
+ * Normalize any {@link BinaryInput} shape into a plain `ArrayBuffer`.
+ *
+ * A view is sliced to its own window rather than returning `.buffer`
+ * directly, since a `Uint8Array`/`Buffer` may cover only part of a larger,
+ * possibly shared, underlying buffer.
+ */
+export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
+  if (input instanceof ArrayBuffer) {
+    return input;
+  }
+
+  if (ArrayBuffer.isView(input)) {
+    return input.buffer.slice(
+      input.byteOffset,
+      input.byteOffset + input.byteLength,
+    ) as ArrayBuffer;
+  }
+
+  return input.arrayBuffer();
+}
+
+/**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
  * Directory entries (paths ending in `/`, which some tools write explicitly

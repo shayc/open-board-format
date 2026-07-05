@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { expectOBFErrorAsync } from "./test-utils";
-import { isZip, unzip, zip } from "./zip";
+import { isZip, toArrayBuffer, unzip, zip } from "./zip";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -9,7 +9,7 @@ const decoder = new TextDecoder();
  * Helper to safely extract an ArrayBuffer from a Uint8Array,
  * avoiding typed-array .buffer footguns with offset/length mismatches.
  */
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength,
@@ -53,7 +53,7 @@ describe("zip", () => {
     const files = new Map<string, Uint8Array>([["test.txt", testContent]]);
 
     const zipped = await zip(files);
-    const roundTripped = await unzip(toArrayBuffer(zipped));
+    const roundTripped = await unzip(bytesToArrayBuffer(zipped));
 
     expect(roundTripped.size).toBe(1);
     const bytes = roundTripped.get("test.txt");
@@ -72,7 +72,7 @@ describe("zip", () => {
     ]);
 
     const zipped = await zip(files);
-    const roundTripped = await unzip(toArrayBuffer(zipped));
+    const roundTripped = await unzip(bytesToArrayBuffer(zipped));
 
     expect(roundTripped.size).toBe(1);
     const bytes = roundTripped.get("from-arraybuffer.txt");
@@ -83,7 +83,7 @@ describe("zip", () => {
 
 describe("unzip", () => {
   test("rejects with an unreadable-zip OBFError for invalid data", async () => {
-    const invalidData = toArrayBuffer(
+    const invalidData = bytesToArrayBuffer(
       new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]),
     );
 
@@ -99,9 +99,34 @@ describe("unzip", () => {
     ]);
 
     const zipped = await zip(files);
-    const unzipped = await unzip(toArrayBuffer(zipped));
+    const unzipped = await unzip(bytesToArrayBuffer(zipped));
 
     expect([...unzipped.keys()]).toEqual(["folder/file.txt"]);
+  });
+});
+
+describe("toArrayBuffer", () => {
+  test("returns an ArrayBuffer input unchanged", async () => {
+    const original = new Uint8Array([1, 2, 3]).buffer;
+
+    expect(await toArrayBuffer(original)).toBe(original);
+  });
+
+  test("slices a Uint8Array view to its own window, ignoring surrounding bytes", async () => {
+    const padded = new Uint8Array([0xff, 0xff, 1, 2, 3, 0xff]);
+    const view = padded.subarray(2, 5);
+
+    const result = await toArrayBuffer(view);
+
+    expect(new Uint8Array(result)).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  test("reads a Blob via its arrayBuffer() method", async () => {
+    const blob = new Blob([new Uint8Array([4, 5, 6])]);
+
+    const result = await toArrayBuffer(blob);
+
+    expect(new Uint8Array(result)).toEqual(new Uint8Array([4, 5, 6]));
   });
 });
 
@@ -114,7 +139,7 @@ describe("Integration: zip and unzip", () => {
     ]);
 
     const zipped = await zip(files);
-    const unzipped = await unzip(toArrayBuffer(zipped));
+    const unzipped = await unzip(bytesToArrayBuffer(zipped));
 
     expect(unzipped.size).toBe(files.size);
 

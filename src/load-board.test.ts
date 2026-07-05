@@ -40,11 +40,31 @@ describe("loadBoard", () => {
     );
   });
 
+  test("loads a single OBF board from a Blob", async () => {
+    const blob = new Blob([JSON.stringify(validBoard)]);
+
+    const loaded = await loadBoard(blob);
+
+    expect(loaded).toEqual({ format: "obf", board: validBoard });
+  });
+
   test("loads a single OBF board from an ArrayBuffer", async () => {
     const bytes = new TextEncoder().encode(JSON.stringify(validBoard));
     const buffer = bytes.buffer.slice(0, bytes.byteLength);
 
     const loaded = await loadBoard(buffer);
+
+    expect(loaded).toEqual({ format: "obf", board: validBoard });
+  });
+
+  test("loads a single OBF board from a Uint8Array view offset into a larger buffer", async () => {
+    const json = JSON.stringify(validBoard);
+    const bytes = new TextEncoder().encode(json);
+    const padded = new Uint8Array(bytes.byteLength + 10);
+    padded.set(bytes, 10);
+    const view = padded.subarray(10);
+
+    const loaded = await loadBoard(view);
 
     expect(loaded).toEqual({ format: "obf", board: validBoard });
   });
