@@ -105,6 +105,179 @@ describe("unzip", () => {
   });
 });
 
+describe("unzip limits", () => {
+  const filesOf = (...sizes: number[]) =>
+    new Map(sizes.map((size, i) => [`file-${i}.bin`, new Uint8Array(size)]));
+
+  test("no options, empty options, empty limits, and undefined options behave identically", async () => {
+    const zipped = await zip(filesOf(10, 20));
+    const buffer = bytesToArrayBuffer(zipped);
+
+    const bare = await unzip(buffer);
+    const emptyOptions = await unzip(buffer, {});
+    const emptyLimits = await unzip(buffer, { limits: {} });
+    const explicit = await unzip(buffer, undefined);
+
+    expect(emptyOptions).toEqual(bare);
+    expect(emptyLimits).toEqual(bare);
+    expect(explicit).toEqual(bare);
+  });
+
+  test("rejects when an entry's declared size exceeds maxEntrySize", async () => {
+    const zipped = await zip(filesOf(100));
+    const info = await expectOBFErrorAsync(
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntrySize: 50 } }),
+    );
+
+    expect(info).toEqual({
+      code: "archive-too-large",
+      limit: "maxEntrySize",
+      maxBytes: 50,
+      declaredBytes: 100,
+      path: "file-0.bin",
+    });
+  });
+
+  test("passes when an entry's declared size equals maxEntrySize exactly", async () => {
+    const zipped = await zip(filesOf(50));
+    const unzipped = await unzip(bytesToArrayBuffer(zipped), {
+      limits: { maxEntrySize: 50 },
+    });
+
+    expect(unzipped.get("file-0.bin")).toEqual(new Uint8Array(50));
+  });
+
+  test("rejects when the running total exceeds maxTotalOriginalSize", async () => {
+    const zipped = await zip(filesOf(40, 40, 40));
+    const info = await expectOBFErrorAsync(
+      unzip(bytesToArrayBuffer(zipped), {
+        limits: { maxTotalOriginalSize: 100 },
+      }),
+    );
+
+    expect(info).toEqual({
+      code: "archive-too-large",
+      limit: "maxTotalOriginalSize",
+      maxBytes: 100,
+      declaredBytes: 120,
+      path: "file-2.bin",
+    });
+  });
+
+  test("passes when the total declared size equals maxTotalOriginalSize exactly", async () => {
+    const zipped = await zip(filesOf(40, 40, 40));
+    const unzipped = await unzip(bytesToArrayBuffer(zipped), {
+      limits: { maxTotalOriginalSize: 120 },
+    });
+
+    expect(unzipped.size).toBe(3);
+  });
+
+  test("rejects when the entry count exceeds maxEntries", async () => {
+    const zipped = await zip(filesOf(10, 10, 10));
+    const info = await expectOBFErrorAsync(
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntries: 2 } }),
+    );
+
+    expect(info).toEqual({
+      code: "archive-too-large",
+      limit: "maxEntries",
+      maxEntries: 2,
+      entryCount: 3,
+      path: "file-2.bin",
+    });
+  });
+
+  test("passes when the entry count equals maxEntries exactly", async () => {
+    const zipped = await zip(filesOf(10, 10, 10));
+    const unzipped = await unzip(bytesToArrayBuffer(zipped), {
+      limits: { maxEntries: 3 },
+    });
+
+    expect(unzipped.size).toBe(3);
+  });
+
+  test("counts directory entries toward maxEntries", async () => {
+    const files = new Map<string, Uint8Array>([
+      ["folder/", new Uint8Array(0)],
+      ["folder/file.txt", encoder.encode("content")],
+    ]);
+    const zipped = await zip(files);
+    const info = await expectOBFErrorAsync(
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntries: 1 } }),
+    );
+
+    expect(info).toMatchObject({
+      code: "archive-too-large",
+      limit: "maxEntries",
+      entryCount: 2,
+    });
+  });
+
+  test("rejects promptly when a limit trips after a large entry started inflating asynchronously", async () => {
+    // 600,000 zeros: over fflate's 512 KB sync-inflate threshold, so an async worker is dispatched.
+    const zipped = await zip(filesOf(600_000, 100));
+    const info = await expectOBFErrorAsync(
+      unzip(bytesToArrayBuffer(zipped), {
+        limits: { maxTotalOriginalSize: 600_050 },
+      }),
+    );
+
+    expect(info).toMatchObject({
+      code: "archive-too-large",
+      limit: "maxTotalOriginalSize",
+      path: "file-1.bin",
+    });
+  });
+
+  test("generous limits produce the same result as no limits", async () => {
+    const zipped = await zip(filesOf(10, 600_000));
+    const buffer = bytesToArrayBuffer(zipped);
+
+    const withLimits = await unzip(buffer, {
+      limits: {
+        maxEntrySize: Number.MAX_SAFE_INTEGER,
+        maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      },
+    });
+
+    expect(withLimits).toEqual(await unzip(buffer));
+  });
+
+  test.each(["maxEntrySize", "maxTotalOriginalSize", "maxEntries"] as const)(
+    "throws TypeError synchronously when %s is NaN",
+    (key) => {
+      const buffer = new ArrayBuffer(0);
+
+      expect(() => unzip(buffer, { limits: { [key]: NaN } })).toThrow(
+        new TypeError(`limits.${key} must not be NaN`),
+      );
+    },
+  );
+
+  test("rejects with unreadable-zip, not archive-too-large, when a synchronously-inflated corrupt entry precedes a limit trip", async () => {
+    // Both entries stay under fflate's 512 KB sync-inflate threshold; see the terminate() comment in unzip() for the async case this doesn't cover.
+    const zipped = await zip(filesOf(1_000, 200_000));
+    const buffer = bytesToArrayBuffer(zipped);
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+
+    // Local header offsets: name length (u16 LE) at 26, extra length at 28.
+    const dataStart = 30 + view.getUint16(26, true) + view.getUint16(28, true);
+    bytes.fill(0xff, dataStart + 2, dataStart + 10);
+
+    // Sanity control: without limits, the corruption alone causes unreadable-zip.
+    expect((await expectOBFErrorAsync(unzip(buffer))).code).toBe(
+      "unreadable-zip",
+    );
+
+    const info = await expectOBFErrorAsync(
+      unzip(buffer, { limits: { maxTotalOriginalSize: 150_000 } }),
+    );
+    expect(info.code).toBe("unreadable-zip");
+  });
+});
+
 describe("toArrayBuffer", () => {
   test("returns an ArrayBuffer input unchanged", async () => {
     const original = new Uint8Array([1, 2, 3]).buffer;

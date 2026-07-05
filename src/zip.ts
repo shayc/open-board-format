@@ -2,6 +2,7 @@
  * Minimal ZIP helpers over fflate: signature sniffing, unzip, and zip.
  */
 
+import type { UnzipFileInfo } from "fflate";
 import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
 import { OBFError } from "./errors";
 
@@ -47,6 +48,27 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
 }
 
 /**
+ * Optional caps on declared uncompressed sizes, checked per entry against the
+ * archive's ZIP metadata before that entry is inflated. Entries accepted
+ * before a later entry trips a limit have already been inflated, but total
+ * allocation stays bounded by the caps.
+ */
+export interface UnzipLimits {
+  /** Max declared uncompressed size of any single entry, in bytes. */
+  maxEntrySize?: number;
+  /** Max sum of declared uncompressed sizes across all entries, in bytes. */
+  maxTotalOriginalSize?: number;
+  /** Max number of entries, counting directory entries the archive declares. */
+  maxEntries?: number;
+}
+
+/** Options for {@link unzip} and the OBZ loaders that delegate to it. */
+export interface UnzipOptions {
+  /** Optional {@link UnzipLimits} enforced during extraction. */
+  limits?: UnzipLimits;
+}
+
+/**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
  * Directory entries (paths ending in `/`, which some tools write explicitly
@@ -54,27 +76,126 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
  * and this map is documented as file paths to bytes.
  *
  * @param archive - The ZIP archive as an `ArrayBuffer`.
+ * @param options - Optional {@link UnzipOptions}. `options.limits` is checked
+ *   per entry against declared (metadata) sizes before that entry is
+ *   inflated. No limits are applied by default.
  * @returns A map of file paths to their decompressed content.
  *
  * @throws {@link OBFError} with `info.code` `"unreadable-zip"` if the archive is
- *   corrupt or cannot be decompressed.
+ *   corrupt or cannot be decompressed, or `"archive-too-large"` if a limit in
+ *   `options.limits` is exceeded.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
-export function unzip(archive: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+export function unzip(
+  archive: ArrayBuffer,
+  options?: UnzipOptions,
+): Promise<Map<string, Uint8Array>> {
+  for (const key of [
+    "maxEntrySize",
+    "maxTotalOriginalSize",
+    "maxEntries",
+  ] as const) {
+    const value = options?.limits?.[key];
+    if (value !== undefined && Number.isNaN(value)) {
+      throw new TypeError(`limits.${key} must not be NaN`);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const compressed = new Uint8Array(archive);
+    const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
+      options?.limits ?? {};
 
-    fflateUnzip(compressed, (error, entries) => {
-      if (error) {
-        reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
-        return;
+    let limitError: OBFError | undefined;
+    let settled = false;
+    let totalDeclared = 0;
+    let entryCount = 0;
+
+    const filter = (file: UnzipFileInfo): boolean => {
+      if (limitError) {
+        return false; // limit tripped: skip the rest cheaply
       }
 
-      const pathToBytes = new Map(
-        Object.entries(entries).filter(([path]) => !path.endsWith("/")),
-      );
+      entryCount += 1;
+      if (maxEntries !== undefined && entryCount > maxEntries) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxEntries",
+          maxEntries,
+          entryCount,
+          path: file.name,
+        });
+        return false;
+      }
 
-      resolve(pathToBytes);
-    });
+      if (maxEntrySize !== undefined && file.originalSize > maxEntrySize) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxEntrySize",
+          maxBytes: maxEntrySize,
+          declaredBytes: file.originalSize,
+          path: file.name,
+        });
+        return false;
+      }
+
+      totalDeclared += file.originalSize;
+      if (
+        maxTotalOriginalSize !== undefined &&
+        totalDeclared > maxTotalOriginalSize
+      ) {
+        limitError = new OBFError({
+          code: "archive-too-large",
+          limit: "maxTotalOriginalSize",
+          maxBytes: maxTotalOriginalSize,
+          declaredBytes: totalDeclared,
+          path: file.name,
+        });
+        return false;
+      }
+
+      return true;
+    };
+
+    const terminate = fflateUnzip(
+      compressed,
+      options?.limits ? { filter } : {},
+      (error, entries) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+
+        if (error) {
+          reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
+          return;
+        }
+
+        if (limitError) {
+          reject(limitError);
+          return;
+        }
+
+        const pathToBytes = new Map(
+          Object.entries(entries).filter(([path]) => !path.endsWith("/")),
+        );
+
+        resolve(pathToBytes);
+      },
+    );
+
+    if (limitError) {
+      const error = limitError;
+      // Deliberate: this can pre-empt an in-flight entry's own corruption error, surfacing archive-too-large instead of unreadable-zip.
+      terminate(); // kill any dispatched async inflate workers
+      // Deferred so an archive error fflate queued during its sync pass settles first.
+      queueMicrotask(() => {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      });
+    }
   });
 }
 

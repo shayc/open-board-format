@@ -3,11 +3,11 @@
  */
 
 import { parseOBF } from "./obf";
-import { extractOBZ } from "./obz";
 import type { ParsedOBZ } from "./obz";
+import { extractOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
+import type { BinaryInput, UnzipOptions } from "./zip";
 import { isZip, toArrayBuffer } from "./zip";
-import type { BinaryInput } from "./zip";
 
 /**
  * Result of {@link loadBoard} — a discriminated union over the two file
@@ -40,17 +40,24 @@ export type LoadedBoard =
  *
  * @param input - A `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView`
  *   (e.g. a Node `Buffer`) holding `.obf` or `.obz` content.
+ * @param options - Optional {@link UnzipOptions}. Applies only when the input
+ *   is an OBZ archive; ignored for `.obf` JSON.
  * @returns A discriminated union tagged by `format`.
  *
  * @throws {@link OBFError} — the OBZ failures of {@link extractOBZ} when the
  *   input is an archive, or the OBF failures of {@link parseOBF} otherwise.
  *   Branch on `error.info.code`.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN` and the
+ *   input is an OBZ archive.
  */
-export async function loadBoard(input: BinaryInput): Promise<LoadedBoard> {
+export async function loadBoard(
+  input: BinaryInput,
+  options?: UnzipOptions,
+): Promise<LoadedBoard> {
   const buffer = await toArrayBuffer(input);
 
   if (isZip(buffer)) {
-    return { format: "obz", archive: await extractOBZ(buffer) };
+    return { format: "obz", archive: await extractOBZ(buffer, options) };
   }
 
   return { format: "obf", board: parseOBF(new TextDecoder().decode(buffer)) };

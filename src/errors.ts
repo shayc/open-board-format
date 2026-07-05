@@ -50,6 +50,28 @@ export type OBFErrorInfo =
   | { code: "not-zip" }
   /** A ZIP archive could not be decompressed. */
   | { code: "unreadable-zip" }
+  /** An entry or the archive's declared uncompressed total exceeds a caller-supplied limit. */
+  | {
+      code: "archive-too-large";
+      limit: "maxEntrySize" | "maxTotalOriginalSize";
+      /** The cap that was exceeded, in bytes. */
+      maxBytes: number;
+      /** The declared size that exceeded it: the entry's size, or the running total. */
+      declaredBytes: number;
+      /** The archive entry whose declaration tripped the limit. */
+      path: string;
+    }
+  /** The archive has more entries than a caller-supplied limit allows. */
+  | {
+      code: "archive-too-large";
+      limit: "maxEntries";
+      /** The cap that was exceeded, as an entry count. */
+      maxEntries: number;
+      /** The running entry count that exceeded it. */
+      entryCount: number;
+      /** The archive entry that tripped the limit. */
+      path: string;
+    }
   // --- validation (underlying `ZodError` on `error.cause`) ---
   /** A board failed schema validation. `boardId` is set when known. */
   | { code: "invalid-board"; boardId?: string; issues: readonly OBFIssue[] }
@@ -123,6 +145,12 @@ function formatOBFError(info: OBFErrorInfo): string {
       return "Invalid OBZ: not a ZIP file";
     case "unreadable-zip":
       return "ZIP archive could not be read";
+    case "archive-too-large":
+      return info.limit === "maxEntries"
+        ? `Invalid OBZ: entry count reached ${info.entryCount} at "${info.path}", exceeding the ${info.maxEntries}-entry limit`
+        : info.limit === "maxEntrySize"
+          ? `Invalid OBZ: entry "${info.path}" declares ${info.declaredBytes} bytes uncompressed, exceeding the ${info.maxBytes}-byte per-entry limit`
+          : `Invalid OBZ: declared uncompressed size reached ${info.declaredBytes} bytes at "${info.path}", exceeding the ${info.maxBytes}-byte total limit`;
     case "invalid-board": {
       const subject = info.boardId ? `board "${info.boardId}"` : "board";
       return `Invalid OBF ${subject}:\n${prettifyIssues(info.issues)}`;

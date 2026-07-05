@@ -6,8 +6,8 @@ import { OBFError } from "./errors";
 import { parseOBF } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
+import type { BinaryInput, UnzipOptions } from "./zip";
 import { isZip, toArrayBuffer, unzip, zip } from "./zip";
-import type { BinaryInput } from "./zip";
 
 /**
  * Fully extracted contents of an `.obz` archive.
@@ -37,13 +37,18 @@ export interface ParsedOBZ {
  * so this exists only for the naming symmetry with {@link loadOBF}.
  *
  * @param file - A `File` handle pointing to an `.obz` archive.
+ * @param options - Optional {@link UnzipOptions} on declared uncompressed sizes.
  * @returns The parsed manifest, boards, root board, and binary resources.
  *
  * @throws {@link OBFError} — the same failures as {@link extractOBZ}, which
  *   this delegates to.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
-export async function loadOBZ(file: File): Promise<ParsedOBZ> {
-  return extractOBZ(file);
+export async function loadOBZ(
+  file: File,
+  options?: UnzipOptions,
+): Promise<ParsedOBZ> {
+  return extractOBZ(file, options);
 }
 
 /**
@@ -51,22 +56,30 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
  *
  * @param archive - The OBZ archive as a `File`, `Blob`, `ArrayBuffer`, or
  *   `ArrayBufferView` (e.g. a Node `Buffer`).
+ * @param options - Optional {@link UnzipOptions}. `options.limits` caps
+ *   declared uncompressed sizes, checked before inflation. No limits are
+ *   applied by default.
  * @returns A {@link ParsedOBZ} with the archive's manifest, boards, root
  *          board, and resources.
  *
  * @throws {@link OBFError}; branch on `info.code`: `"not-zip"`,
- *   `"unreadable-zip"`, `"missing-manifest"`, `"not-json"` or
- *   `"invalid-manifest"` (bad manifest), `"missing-board"`,
- *   `"board-id-mismatch"`, or `"invalid-board"` (a board fails validation).
+ *   `"unreadable-zip"`, `"archive-too-large"` (a limit in `options.limits` is
+ *   exceeded), `"missing-manifest"`, `"not-json"` or `"invalid-manifest"`
+ *   (bad manifest), `"missing-board"`, `"board-id-mismatch"`, or
+ *   `"invalid-board"` (a board fails validation).
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
-export async function extractOBZ(archive: BinaryInput): Promise<ParsedOBZ> {
+export async function extractOBZ(
+  archive: BinaryInput,
+  options?: UnzipOptions,
+): Promise<ParsedOBZ> {
   const buffer = await toArrayBuffer(archive);
 
   if (!isZip(buffer)) {
     throw new OBFError({ code: "not-zip" });
   }
 
-  const entries = await unzip(buffer);
+  const entries = await unzip(buffer, options);
 
   const manifest = extractManifest(entries);
   const { boards, rootBoard } = extractBoards(manifest, entries);
