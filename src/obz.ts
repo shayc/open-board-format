@@ -194,8 +194,9 @@ export async function createOBZ(
         { cause: result.error },
       );
     }
+
     entries.set(
-      boardPaths[result.data.id],
+      boardPaths[board.id]!,
       encoder.encode(JSON.stringify(result.data, null, 2)),
     );
   }

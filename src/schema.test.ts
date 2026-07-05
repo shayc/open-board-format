@@ -428,10 +428,10 @@ describe("OBFGridSchema", () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.order[0][0]).toBe("1");
-      expect(result.data.order[0][1]).toBe("2");
-      expect(result.data.order[1][0]).toBe("3");
-      expect(result.data.order[1][1]).toBeNull();
+      expect(result.data.order[0]?.[0]).toBe("1");
+      expect(result.data.order[0]?.[1]).toBe("2");
+      expect(result.data.order[1]?.[0]).toBe("3");
+      expect(result.data.order[1]?.[1]).toBeNull();
     }
   });
 

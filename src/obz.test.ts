@@ -420,11 +420,11 @@ describe("Integration: createOBZ and extractOBZ", () => {
     expect(extracted.boards.size).toBe(2);
 
     const extractedBoard1 = extracted.boards.get("board-1");
-    expect(extractedBoard1?.buttons[0].label).toBe("Go to 2");
-    expect(extractedBoard1?.buttons[0].load_board?.id).toBe("board-2");
+    expect(extractedBoard1?.buttons[0]?.label).toBe("Go to 2");
+    expect(extractedBoard1?.buttons[0]?.load_board?.id).toBe("board-2");
 
     const extractedBoard2 = extracted.boards.get("board-2");
-    expect(extractedBoard2?.buttons[0].label).toBe("Back");
+    expect(extractedBoard2?.buttons[0]?.label).toBe("Back");
   });
 });
 
