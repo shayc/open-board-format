@@ -1,5 +1,15 @@
 # @shayc/open-board-format
 
+## 1.1.0
+
+### Minor Changes
+
+- 3acb84d: `loadBoard` and `extractOBZ` now accept a `Blob` or any typed-array view (e.g. a Node `Buffer`/`Uint8Array`) in addition to `File` and `ArrayBuffer`, instead of throwing a raw `TypeError` on those inputs. This removes the need to manually slice a `Buffer` into an `ArrayBuffer` before calling `loadBoard` in Node.
+
+### Patch Changes
+
+- 3acb84d: `createOBZ` now always emits both `paths.images` and `paths.sounds` in the generated manifest, even when empty, matching the spec's example manifest instead of omitting `sounds` when there are none.
+
 ## 1.0.2
 
 ### Patch Changes
