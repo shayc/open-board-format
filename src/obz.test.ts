@@ -317,12 +317,12 @@ describe("createOBZ", () => {
     ).toMatchObject({ code: "path-collision", path: "boards/b.obf" });
   });
 
-  test("omits sounds map when no sounds have paths", async () => {
+  test("includes empty images and sounds maps when neither have paths", async () => {
     const extracted = await extractOBZ(
       await (await createOBZ([makeBoard()], "b")).arrayBuffer(),
     );
 
-    expect(extracted.manifest.paths.sounds).toBeUndefined();
+    expect(extracted.manifest.paths.sounds).toEqual({});
     expect(extracted.manifest.paths.images).toEqual({});
   });
 

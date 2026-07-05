@@ -157,7 +157,7 @@ export async function createOBZ(
     paths: {
       boards: boardPaths,
       images: imagePaths,
-      ...(Object.keys(soundPaths).length > 0 ? { sounds: soundPaths } : {}),
+      sounds: soundPaths,
     },
   });
 
