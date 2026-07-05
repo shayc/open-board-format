@@ -109,12 +109,12 @@ describe("loadBoard", () => {
     const file = new File([obzBlob], "test.obz");
 
     const info = await expectOBFErrorAsync(
-      loadBoard(file, { maxTotalOriginalSize: 10 }),
+      loadBoard(file, { limits: { maxTotalOriginalSize: 10 } }),
     );
     expect(info.code).toBe("archive-too-large");
 
     const loaded = await loadBoard(file, {
-      maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      limits: { maxTotalOriginalSize: Number.MAX_SAFE_INTEGER },
     });
     expect(loaded.format).toBe("obz");
   });
@@ -122,7 +122,9 @@ describe("loadBoard", () => {
   test("ignores limits for plain OBF input", async () => {
     const file = new File([JSON.stringify(validBoard)], "test.obf");
 
-    const loaded = await loadBoard(file, { maxTotalOriginalSize: 1 });
+    const loaded = await loadBoard(file, {
+      limits: { maxTotalOriginalSize: 1 },
+    });
 
     expect(loaded).toEqual({ format: "obf", board: validBoard });
   });

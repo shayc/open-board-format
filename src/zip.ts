@@ -48,10 +48,10 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
 }
 
 /**
- * Optional caps on declared uncompressed sizes, checked before inflation.
- *
- * The declared sizes come from the archive's ZIP metadata, so oversized input
- * is rejected before any decompression work or output allocation happens.
+ * Optional caps on declared uncompressed sizes, checked per entry against the
+ * archive's ZIP metadata before that entry is inflated. Entries accepted
+ * before a later entry trips a limit have already been inflated, but total
+ * allocation stays bounded by the caps.
  */
 export interface UnzipLimits {
   /** Max declared uncompressed size of any single entry, in bytes. */
@@ -62,6 +62,12 @@ export interface UnzipLimits {
   maxEntries?: number;
 }
 
+/** Options for {@link unzip} and the OBZ loaders that delegate to it. */
+export interface UnzipOptions {
+  /** Optional {@link UnzipLimits} enforced during extraction. */
+  limits?: UnzipLimits;
+}
+
 /**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
@@ -70,21 +76,35 @@ export interface UnzipLimits {
  * and this map is documented as file paths to bytes.
  *
  * @param archive - The ZIP archive as an `ArrayBuffer`.
- * @param limits - Optional {@link UnzipLimits} checked against declared
- *   (metadata) sizes before inflation. No limits are applied by default.
+ * @param options - Optional {@link UnzipOptions}. `options.limits` is checked
+ *   per entry against declared (metadata) sizes before that entry is
+ *   inflated. No limits are applied by default.
  * @returns A map of file paths to their decompressed content.
  *
  * @throws {@link OBFError} with `info.code` `"unreadable-zip"` if the archive is
  *   corrupt or cannot be decompressed, or `"archive-too-large"` if a limit in
- *   `limits` is exceeded.
+ *   `options.limits` is exceeded.
+ * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export function unzip(
   archive: ArrayBuffer,
-  limits?: UnzipLimits,
+  options?: UnzipOptions,
 ): Promise<Map<string, Uint8Array>> {
+  for (const key of [
+    "maxEntrySize",
+    "maxTotalOriginalSize",
+    "maxEntries",
+  ] as const) {
+    const value = options?.limits?.[key];
+    if (value !== undefined && Number.isNaN(value)) {
+      throw new TypeError(`limits.${key} must not be NaN`);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const compressed = new Uint8Array(archive);
-    const { maxEntrySize, maxTotalOriginalSize, maxEntries } = limits ?? {};
+    const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
+      options?.limits ?? {};
 
     let limitError: OBFError | undefined;
     let settled = false;
@@ -139,10 +159,8 @@ export function unzip(
 
     const terminate = fflateUnzip(
       compressed,
-      limits ? { filter } : {},
+      options?.limits ? { filter } : {},
       (error, entries) => {
-        // After a limit trips, fflate still fires this with partial entries
-        // on a later microtask — the settled guard makes that a no-op.
         if (settled) {
           return;
         }
@@ -150,6 +168,11 @@ export function unzip(
 
         if (error) {
           reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
+          return;
+        }
+
+        if (limitError) {
+          reject(limitError);
           return;
         }
 
@@ -161,13 +184,16 @@ export function unzip(
       },
     );
 
-    // fflate runs every filter call synchronously inside fflateUnzip and
-    // defers its callback to a microtask, so limitError is final here and
-    // nothing can have settled yet.
     if (limitError) {
-      settled = true;
+      const error = limitError;
       terminate(); // kill any dispatched async inflate workers
-      reject(limitError);
+      // Deferred so an archive error fflate queued during its sync pass settles first.
+      queueMicrotask(() => {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      });
     }
   });
 }

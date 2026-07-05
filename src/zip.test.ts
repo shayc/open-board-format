@@ -109,22 +109,24 @@ describe("unzip limits", () => {
   const filesOf = (...sizes: number[]) =>
     new Map(sizes.map((size, i) => [`file-${i}.bin`, new Uint8Array(size)]));
 
-  test("no limits, empty limits, and undefined limits behave identically", async () => {
+  test("no options, empty options, empty limits, and undefined options behave identically", async () => {
     const zipped = await zip(filesOf(10, 20));
     const buffer = bytesToArrayBuffer(zipped);
 
     const bare = await unzip(buffer);
-    const empty = await unzip(buffer, {});
+    const emptyOptions = await unzip(buffer, {});
+    const emptyLimits = await unzip(buffer, { limits: {} });
     const explicit = await unzip(buffer, undefined);
 
-    expect(empty).toEqual(bare);
+    expect(emptyOptions).toEqual(bare);
+    expect(emptyLimits).toEqual(bare);
     expect(explicit).toEqual(bare);
   });
 
   test("rejects when an entry's declared size exceeds maxEntrySize", async () => {
     const zipped = await zip(filesOf(100));
     const info = await expectOBFErrorAsync(
-      unzip(bytesToArrayBuffer(zipped), { maxEntrySize: 50 }),
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntrySize: 50 } }),
     );
 
     expect(info).toEqual({
@@ -139,7 +141,7 @@ describe("unzip limits", () => {
   test("passes when an entry's declared size equals maxEntrySize exactly", async () => {
     const zipped = await zip(filesOf(50));
     const unzipped = await unzip(bytesToArrayBuffer(zipped), {
-      maxEntrySize: 50,
+      limits: { maxEntrySize: 50 },
     });
 
     expect(unzipped.get("file-0.bin")).toEqual(new Uint8Array(50));
@@ -148,7 +150,9 @@ describe("unzip limits", () => {
   test("rejects when the running total exceeds maxTotalOriginalSize", async () => {
     const zipped = await zip(filesOf(40, 40, 40));
     const info = await expectOBFErrorAsync(
-      unzip(bytesToArrayBuffer(zipped), { maxTotalOriginalSize: 100 }),
+      unzip(bytesToArrayBuffer(zipped), {
+        limits: { maxTotalOriginalSize: 100 },
+      }),
     );
 
     expect(info).toEqual({
@@ -163,7 +167,7 @@ describe("unzip limits", () => {
   test("passes when the total declared size equals maxTotalOriginalSize exactly", async () => {
     const zipped = await zip(filesOf(40, 40, 40));
     const unzipped = await unzip(bytesToArrayBuffer(zipped), {
-      maxTotalOriginalSize: 120,
+      limits: { maxTotalOriginalSize: 120 },
     });
 
     expect(unzipped.size).toBe(3);
@@ -172,7 +176,7 @@ describe("unzip limits", () => {
   test("rejects when the entry count exceeds maxEntries", async () => {
     const zipped = await zip(filesOf(10, 10, 10));
     const info = await expectOBFErrorAsync(
-      unzip(bytesToArrayBuffer(zipped), { maxEntries: 2 }),
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntries: 2 } }),
     );
 
     expect(info).toEqual({
@@ -187,7 +191,7 @@ describe("unzip limits", () => {
   test("passes when the entry count equals maxEntries exactly", async () => {
     const zipped = await zip(filesOf(10, 10, 10));
     const unzipped = await unzip(bytesToArrayBuffer(zipped), {
-      maxEntries: 3,
+      limits: { maxEntries: 3 },
     });
 
     expect(unzipped.size).toBe(3);
@@ -200,7 +204,7 @@ describe("unzip limits", () => {
     ]);
     const zipped = await zip(files);
     const info = await expectOBFErrorAsync(
-      unzip(bytesToArrayBuffer(zipped), { maxEntries: 1 }),
+      unzip(bytesToArrayBuffer(zipped), { limits: { maxEntries: 1 } }),
     );
 
     expect(info).toMatchObject({
@@ -211,12 +215,12 @@ describe("unzip limits", () => {
   });
 
   test("rejects promptly when a limit trips after a large entry started inflating asynchronously", async () => {
-    // 600,000 zero bytes: above fflate's 512 KB threshold and highly
-    // compressible, so it dispatches an async inflate worker that the
-    // limit-trip path must terminate.
+    // 600,000 zeros: over fflate's 512 KB sync-inflate threshold, so an async worker is dispatched.
     const zipped = await zip(filesOf(600_000, 100));
     const info = await expectOBFErrorAsync(
-      unzip(bytesToArrayBuffer(zipped), { maxTotalOriginalSize: 600_050 }),
+      unzip(bytesToArrayBuffer(zipped), {
+        limits: { maxTotalOriginalSize: 600_050 },
+      }),
     );
 
     expect(info).toMatchObject({
@@ -231,11 +235,46 @@ describe("unzip limits", () => {
     const buffer = bytesToArrayBuffer(zipped);
 
     const withLimits = await unzip(buffer, {
-      maxEntrySize: Number.MAX_SAFE_INTEGER,
-      maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      limits: {
+        maxEntrySize: Number.MAX_SAFE_INTEGER,
+        maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      },
     });
 
     expect(withLimits).toEqual(await unzip(buffer));
+  });
+
+  test.each(["maxEntrySize", "maxTotalOriginalSize", "maxEntries"] as const)(
+    "throws TypeError synchronously when %s is NaN",
+    (key) => {
+      const buffer = new ArrayBuffer(0);
+
+      expect(() => unzip(buffer, { limits: { [key]: NaN } })).toThrow(
+        new TypeError(`limits.${key} must not be NaN`),
+      );
+    },
+  );
+
+  test("rejects with unreadable-zip, not archive-too-large, when a corrupt entry precedes a limit trip", async () => {
+    const zipped = await zip(filesOf(1_000, 200_000));
+    const buffer = bytesToArrayBuffer(zipped);
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+
+    // Local header: "PK\x03\x04" at offset 0; name length (u16 LE) at 26, extra length at 28;
+    // entry 1's compressed data starts right after the header + name + extra.
+    const dataStart = 30 + view.getUint16(26, true) + view.getUint16(28, true);
+    bytes.fill(0xff, dataStart + 2, dataStart + 10);
+
+    // Sanity control: without limits, the corruption alone causes unreadable-zip.
+    expect((await expectOBFErrorAsync(unzip(buffer))).code).toBe(
+      "unreadable-zip",
+    );
+
+    const info = await expectOBFErrorAsync(
+      unzip(buffer, { limits: { maxTotalOriginalSize: 150_000 } }),
+    );
+    expect(info.code).toBe("unreadable-zip");
   });
 });
 

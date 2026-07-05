@@ -6,7 +6,7 @@ import { parseOBF } from "./obf";
 import type { ParsedOBZ } from "./obz";
 import { extractOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
-import type { BinaryInput, UnzipLimits } from "./zip";
+import type { BinaryInput, UnzipOptions } from "./zip";
 import { isZip, toArrayBuffer } from "./zip";
 
 /**
@@ -40,8 +40,8 @@ export type LoadedBoard =
  *
  * @param input - A `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView`
  *   (e.g. a Node `Buffer`) holding `.obf` or `.obz` content.
- * @param limits - Optional {@link UnzipLimits} on declared uncompressed sizes.
- *   Applies only when the input is an OBZ archive; ignored for `.obf` JSON.
+ * @param options - Optional {@link UnzipOptions}. Applies only when the input
+ *   is an OBZ archive; ignored for `.obf` JSON.
  * @returns A discriminated union tagged by `format`.
  *
  * @throws {@link OBFError} — the OBZ failures of {@link extractOBZ} when the
@@ -50,12 +50,12 @@ export type LoadedBoard =
  */
 export async function loadBoard(
   input: BinaryInput,
-  limits?: UnzipLimits,
+  options?: UnzipOptions,
 ): Promise<LoadedBoard> {
   const buffer = await toArrayBuffer(input);
 
   if (isZip(buffer)) {
-    return { format: "obz", archive: await extractOBZ(buffer, limits) };
+    return { format: "obz", archive: await extractOBZ(buffer, options) };
   }
 
   return { format: "obf", board: parseOBF(new TextDecoder().decode(buffer)) };

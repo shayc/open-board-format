@@ -81,7 +81,9 @@ const { rootBoard, boards, resources } = await loadOBZ(file);
 const parsed = await extractOBZ(buffer);
 
 // Untrusted input? Cap declared uncompressed sizes (see Security)
-const guarded = await extractOBZ(buffer, { maxTotalOriginalSize: 500e6 });
+const guarded = await extractOBZ(buffer, {
+  limits: { maxTotalOriginalSize: 500e6 },
+});
 ```
 
 `rootBoard` is the package's home board — the one `manifest.root` points at, already resolved. `boards` is keyed by board ID and `resources` by archive path; the `manifest` is also returned if you need the raw table of contents.
@@ -148,24 +150,24 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 | Function                                     | Returns              | Description                                                                                                   |
 | -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `loadOBZ(file, limits?)`                     | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                                                     |
-| `extractOBZ(archive, limits?)`               | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from a `File`, `Blob`, `ArrayBuffer`, or typed-array view |
+| `loadOBZ(file, options?)`                    | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                                                     |
+| `extractOBZ(archive, options?)`              | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from a `File`, `Blob`, `ArrayBuffer`, or typed-array view |
 | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Create an OBZ package as a `Blob`                                                                             |
 | `parseManifest(json)`                        | `OBFManifest`        | Parse a `manifest.json` string into a validated `OBFManifest`                                                 |
 
 ### Format detection
 
-| Function                    | Returns                | Description                                                                                                            |
-| --------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `loadBoard(input, limits?)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File`, `Blob`, `ArrayBuffer`, or typed-array view and load it; returns a `LoadedBoard` union |
+| Function                     | Returns                | Description                                                                                                            |
+| ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `loadBoard(input, options?)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File`, `Blob`, `ArrayBuffer`, or typed-array view and load it; returns a `LoadedBoard` union |
 
 ### Utilities
 
-| Function                  | Returns                            | Description                                              |
-| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| `isZip(archive)`          | `boolean`                          | Check if an `ArrayBuffer` starts with a ZIP magic number |
-| `zip(entries)`            | `Promise<Uint8Array>`              | Create a ZIP from a map of paths to buffers              |
-| `unzip(archive, limits?)` | `Promise<Map<string, Uint8Array>>` | Extract a ZIP into a map of paths to `Uint8Array`        |
+| Function                   | Returns                            | Description                                              |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| `isZip(archive)`           | `boolean`                          | Check if an `ArrayBuffer` starts with a ZIP magic number |
+| `zip(entries)`             | `Promise<Uint8Array>`              | Create a ZIP from a map of paths to buffers              |
+| `unzip(archive, options?)` | `Promise<Map<string, Uint8Array>>` | Extract a ZIP into a map of paths to `Uint8Array`        |
 
 ### Types
 
@@ -187,6 +189,7 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 | `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`                          |
 | `BinaryInput`         | Input type of `loadBoard` / `extractOBZ` — `File \| Blob \| ArrayBuffer \| ArrayBufferView`                    |
 | `UnzipLimits`         | Optional extraction caps — `{ maxEntrySize?, maxTotalOriginalSize?, maxEntries? }` (see [Security](#security)) |
+| `UnzipOptions`        | Options for `unzip` / `extractOBZ` / `loadOBZ` / `loadBoard` — `{ limits?: UnzipLimits }`                      |
 | `OBFID`               | Unique identifier (string, coerced from number)                                                                |
 | `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                                                 |
 | `OBFLicense`          | Licensing information                                                                                          |
@@ -196,7 +199,7 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### Schemas
 
-Every type above except `ParsedOBZ`, `LoadedBoard`, `BinaryInput`, and `UnzipLimits` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
+Every type above except `ParsedOBZ`, `LoadedBoard`, `BinaryInput`, `UnzipLimits`, and `UnzipOptions` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
 
 ```ts
 import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";
@@ -261,17 +264,19 @@ The `code` values, grouped by what they describe:
 
 ## Security
 
-OBZ archives are untrusted input. To guard against zip bombs, pass `UnzipLimits` to `loadBoard` / `loadOBZ` / `extractOBZ` / `unzip`:
+OBZ archives are untrusted input. To guard against zip bombs, pass `limits` (via `UnzipOptions`) to `loadBoard` / `loadOBZ` / `extractOBZ` / `unzip`:
 
 ```ts
 const parsed = await extractOBZ(buffer, {
-  maxEntrySize: 100e6, // any single entry, in bytes
-  maxTotalOriginalSize: 500e6, // sum of all entries, in bytes
-  maxEntries: 10_000, // entry count, including directory entries
+  limits: {
+    maxEntrySize: 100e6, // any single entry, in bytes
+    maxTotalOriginalSize: 500e6, // sum of all entries, in bytes
+    maxEntries: 10_000, // entry count, including directory entries
+  },
 });
 ```
 
-Size limits are checked against the uncompressed sizes declared in the archive's ZIP metadata, before any inflation happens; `maxEntries` caps how many entries are processed at all. Exceeding a limit aborts extraction and rejects with an `OBFError` whose code is `archive-too-large` (`info` carries `limit`, the entry `path` that tripped it, and `maxBytes`/`declaredBytes` for the size limits or `maxEntries`/`entryCount` for the count). No limits are applied by default. A lying header can't force larger allocations — fflate allocates output buffers at exactly the declared size — so the declared-size caps bound memory use.
+Size limits are checked per entry against the uncompressed size declared in the archive's ZIP metadata, before that entry is inflated; `maxEntries` caps how many entries are processed at all. Entries accepted before a later entry trips a limit have already been inflated, but total allocation stays bounded by the caps. Exceeding a limit aborts extraction and rejects with an `OBFError` whose code is `archive-too-large` (`info` carries `limit`, the entry `path` that tripped it, and `maxBytes`/`declaredBytes` for the size limits or `maxEntries`/`entryCount` for the count). No limits are applied by default. A lying header can't force larger allocations — fflate allocates output buffers at exactly the declared size — so the declared-size caps bound memory use.
 
 Entry paths are not sanitized — if you write extracted resources to disk, validate paths yourself first to avoid directory traversal.
 
@@ -283,7 +288,7 @@ What this library deliberately does not do:
 
 - **No network I/O** — media referenced by `url` or `data_url` is not fetched; resolving external media is up to you.
 - **No rendering** — it parses and validates data; drawing boards and playing sounds belong to your app.
-- **No default extraction limits, no path sanitization** — size caps are opt-in via `UnzipLimits`; see [Security](#security) before writing archive contents to disk.
+- **No default extraction limits, no path sanitization** — size caps are opt-in via `UnzipOptions`; see [Security](#security) before writing archive contents to disk.
 - **No referential integrity checks** — a `grid.order` id with no matching button, or an `image_id`/`sound_id` with no matching image/sound, is not flagged. Resolving references is up to your rendering layer.
 
 ## Versioning

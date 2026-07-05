@@ -181,7 +181,9 @@ describe("extractOBZ", () => {
     const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
 
     const info = await expectOBFErrorAsync(
-      extractOBZ(await obzBlob.arrayBuffer(), { maxTotalOriginalSize: 10 }),
+      extractOBZ(await obzBlob.arrayBuffer(), {
+        limits: { maxTotalOriginalSize: 10 },
+      }),
     );
 
     expect(info.code).toBe("archive-too-large");
@@ -192,8 +194,10 @@ describe("extractOBZ", () => {
     const buffer = await obzBlob.arrayBuffer();
 
     const limited = await extractOBZ(buffer, {
-      maxEntrySize: Number.MAX_SAFE_INTEGER,
-      maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      limits: {
+        maxEntrySize: Number.MAX_SAFE_INTEGER,
+        maxTotalOriginalSize: Number.MAX_SAFE_INTEGER,
+      },
     });
     const unlimited = await extractOBZ(buffer);
 
@@ -221,7 +225,7 @@ describe("loadOBZ", () => {
     const file = new File([obzBlob], "test.obz", { type: "application/zip" });
 
     const info = await expectOBFErrorAsync(
-      loadOBZ(file, { maxTotalOriginalSize: 10 }),
+      loadOBZ(file, { limits: { maxTotalOriginalSize: 10 } }),
     );
 
     expect(info.code).toBe("archive-too-large");
