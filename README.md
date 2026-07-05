@@ -18,7 +18,7 @@ my-board.obz
 ```
 
 - **Typed end to end** — every type is inferred from a [Zod](https://zod.dev/) schema, and every schema is exported for `safeParse` or composing into your own contracts.
-- **Browser and Node.js 22+** — pure ESM, works against `File` and `ArrayBuffer`.
+- **Browser and Node.js 22+** — pure ESM, works against `File`, `Blob`, `ArrayBuffer`, or any typed-array view (e.g. Node's `Buffer`).
 - **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
 - **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
 - **Small footprint** — one runtime dependency ([fflate](https://github.com/101arrowz/fflate)) plus Zod as a peer, tree-shakeable, no side effects.
@@ -50,18 +50,15 @@ if (loaded.format === "obf") {
 }
 ```
 
-`loadBoard` accepts a `File` or `ArrayBuffer` and throws on invalid input (see [Errors](#errors)). Already holding a JSON string? `parseOBF(json)` returns a validated `OBFBoard` directly.
+`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or any typed-array view (e.g. a Node `Buffer`), and throws on invalid input (see [Errors](#errors)). Already holding a JSON string? `parseOBF(json)` returns a validated `OBFBoard` directly.
 
-In Node.js, read the file to a buffer first — there's no `File` API outside the browser:
+In Node.js, read the file first — there's no `File` API outside the browser, but `readFile`'s `Buffer` works directly:
 
 ```ts
 import { readFile } from "node:fs/promises";
 import { loadBoard } from "@shayc/open-board-format";
 
-const { buffer, byteOffset, byteLength } = await readFile("my-board.obz");
-const loaded = await loadBoard(
-  buffer.slice(byteOffset, byteOffset + byteLength),
-);
+const loaded = await loadBoard(await readFile("my-board.obz"));
 ```
 
 ## Usage
@@ -69,7 +66,7 @@ const loaded = await loadBoard(
 ### Which function do I need?
 
 - **You have a single board (OBF).** Use `parseOBF` for a JSON string, `validateOBF` for an already-parsed object, `loadOBF` for a browser `File`. `stringifyOBF` serializes back out.
-- **You have a package of boards plus media (OBZ).** Use `loadOBZ` for a `File`, `extractOBZ` for an `ArrayBuffer`, `createOBZ` to build a new one.
+- **You have a package of boards plus media (OBZ).** Use `extractOBZ` for a `File`, `Blob`, `ArrayBuffer`, or typed-array view (`loadOBZ` is the same thing, `File`-only); `createOBZ` to build a new one.
 - **You don't know which you have.** Use `loadBoard` — it sniffs the bytes and returns a `{ format, ... }` union so you don't have to inspect the file extension yourself.
 
 ### Read an OBZ package
@@ -80,7 +77,7 @@ import { loadOBZ, extractOBZ } from "@shayc/open-board-format";
 // From a File (e.g. drag-and-drop)
 const { rootBoard, boards, resources } = await loadOBZ(file);
 
-// Or from an ArrayBuffer (e.g. fetch response)
+// Or from anything else — ArrayBuffer, Blob, Node Buffer, etc.
 const parsed = await extractOBZ(buffer);
 ```
 
@@ -133,7 +130,7 @@ if (result.success) {
 
 ## API
 
-One naming convention covers the whole surface: `parse*` takes a JSON string, `validate*` takes an already-parsed object, `load*` takes a browser `File` (`loadBoard` also accepts an `ArrayBuffer`), `stringify*` returns a JSON string — and `extractOBZ`/`createOBZ` operate on whole archives.
+One naming convention covers the whole surface: `parse*` takes a JSON string, `validate*` takes an already-parsed object, `load*` takes a browser `File`, `stringify*` returns a JSON string — and `extractOBZ`/`loadBoard` also accept a `Blob`, `ArrayBuffer`, or typed-array view (e.g. a Node `Buffer`), for use outside the browser.
 
 ### OBF (single board)
 
@@ -146,18 +143,18 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### OBZ (board package)
 
-| Function                                     | Returns              | Description                                                               |
-| -------------------------------------------- | -------------------- | ------------------------------------------------------------------------- |
-| `loadOBZ(file)`                              | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                 |
-| `extractOBZ(archive)`                        | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from an `ArrayBuffer` |
-| `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Create an OBZ package as a `Blob`                                         |
-| `parseManifest(json)`                        | `OBFManifest`        | Parse a `manifest.json` string into a validated `OBFManifest`             |
+| Function                                     | Returns              | Description                                                                                                   |
+| -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `loadOBZ(file)`                              | `Promise<ParsedOBZ>` | Load an OBZ package from a browser `File`                                                                     |
+| `extractOBZ(archive)`                        | `Promise<ParsedOBZ>` | Extract boards, manifest, root board, and resources from a `File`, `Blob`, `ArrayBuffer`, or typed-array view |
+| `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Create an OBZ package as a `Blob`                                                                             |
+| `parseManifest(json)`                        | `OBFManifest`        | Parse a `manifest.json` string into a validated `OBFManifest`                                                 |
 
 ### Format detection
 
-| Function           | Returns                | Description                                                                                 |
-| ------------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
-| `loadBoard(input)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File` or `ArrayBuffer` and load it; returns a `LoadedBoard` union |
+| Function           | Returns                | Description                                                                                                            |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `loadBoard(input)` | `Promise<LoadedBoard>` | Detect OBF vs OBZ from a `File`, `Blob`, `ArrayBuffer`, or typed-array view and load it; returns a `LoadedBoard` union |
 
 ### Utilities
 
@@ -169,32 +166,33 @@ One naming convention covers the whole surface: `parse*` takes a JSON string, `v
 
 ### Types
 
-| Type                  | Description                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `OBFBoard`            | A single communication board                                                           |
-| `OBFGrid`             | Grid layout (rows, columns, order)                                                     |
-| `OBFButton`           | A button on the board                                                                  |
-| `OBFButtonAction`     | Button action (spelling or specialty)                                                  |
-| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                           |
-| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                      |
-| `OBFLoadBoard`        | Reference to load another board                                                        |
-| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                           |
-| `OBFImage`            | An image resource (extends `OBFMedia`)                                                 |
-| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                 |
-| `OBFSymbolInfo`       | Symbol set reference                                                                   |
-| `OBFManifest`         | OBZ package manifest                                                                   |
-| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, rootBoard, resources }` |
-| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`  |
-| `OBFID`               | Unique identifier (string, coerced from number)                                        |
-| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                         |
-| `OBFLicense`          | Licensing information                                                                  |
-| `OBFLocaleCode`       | BCP 47 locale code                                                                     |
-| `OBFLocalizedStrings` | Key-value string translations                                                          |
-| `OBFStrings`          | Multi-locale string translations                                                       |
+| Type                  | Description                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `OBFBoard`            | A single communication board                                                                |
+| `OBFGrid`             | Grid layout (rows, columns, order)                                                          |
+| `OBFButton`           | A button on the board                                                                       |
+| `OBFButtonAction`     | Button action (spelling or specialty)                                                       |
+| `OBFSpellingAction`   | Spelling action (e.g., `+s`)                                                                |
+| `OBFSpecialtyAction`  | Specialty action (e.g., `:clear`)                                                           |
+| `OBFLoadBoard`        | Reference to load another board                                                             |
+| `OBFMedia`            | Common media properties (base for `OBFImage` and `OBFSound`)                                |
+| `OBFImage`            | An image resource (extends `OBFMedia`)                                                      |
+| `OBFSound`            | A sound resource (alias of `OBFMedia`)                                                      |
+| `OBFSymbolInfo`       | Symbol set reference                                                                        |
+| `OBFManifest`         | OBZ package manifest                                                                        |
+| `ParsedOBZ`           | Return type of `extractOBZ` / `loadOBZ` — `{ manifest, boards, rootBoard, resources }`      |
+| `LoadedBoard`         | Return type of `loadBoard` — `{ format: "obz", archive } \| { format: "obf", board }`       |
+| `BinaryInput`         | Input type of `loadBoard` / `extractOBZ` — `File \| Blob \| ArrayBuffer \| ArrayBufferView` |
+| `OBFID`               | Unique identifier (string, coerced from number)                                             |
+| `OBFFormatVersion`    | Format version string (e.g., `open-board-0.1`)                                              |
+| `OBFLicense`          | Licensing information                                                                       |
+| `OBFLocaleCode`       | BCP 47 locale code                                                                          |
+| `OBFLocalizedStrings` | Key-value string translations                                                               |
+| `OBFStrings`          | Multi-locale string translations                                                            |
 
 ### Schemas
 
-Every type above except `ParsedOBZ` and `LoadedBoard` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
+Every type above except `ParsedOBZ`, `LoadedBoard`, and `BinaryInput` is exported alongside a matching Zod schema with a `Schema` suffix — `OBFBoard` → `OBFBoardSchema`, `OBFManifest` → `OBFManifestSchema`, and so on. Import any of them to validate with `safeParse`/`parse` or to compose into your own schemas:
 
 ```ts
 import { OBFButtonSchema, OBFManifestSchema } from "@shayc/open-board-format";

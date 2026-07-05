@@ -60,6 +60,16 @@ describe("extractOBZ", () => {
     });
   });
 
+  test("extracts a valid OBZ archive from a Uint8Array directly, with no ArrayBuffer conversion", async () => {
+    const helloBoard = makeBoard({ id: "test" });
+    const obzBlob = await createOBZ([helloBoard], "test");
+    const bytes = new Uint8Array(await obzBlob.arrayBuffer());
+
+    const result = await extractOBZ(bytes);
+
+    expect(result.rootBoard.id).toBe("test");
+  });
+
   test("throws for non-ZIP input", async () => {
     const notZip = new ArrayBuffer(10);
 

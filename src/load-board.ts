@@ -6,7 +6,8 @@ import { parseOBF } from "./obf";
 import { extractOBZ } from "./obz";
 import type { ParsedOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
-import { isZip } from "./zip";
+import { isZip, toArrayBuffer } from "./zip";
+import type { BinaryInput } from "./zip";
 
 /**
  * Result of {@link loadBoard} — a discriminated union over the two file
@@ -37,18 +38,16 @@ export type LoadedBoard =
  * or fetch response without inspecting the file extension or re-deriving the
  * OBF-vs-OBZ distinction themselves.
  *
- * @param input - A `File` handle or `ArrayBuffer` holding `.obf` or `.obz` content.
+ * @param input - A `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView`
+ *   (e.g. a Node `Buffer`) holding `.obf` or `.obz` content.
  * @returns A discriminated union tagged by `format`.
  *
  * @throws {@link OBFError} — the OBZ failures of {@link extractOBZ} when the
  *   input is an archive, or the OBF failures of {@link parseOBF} otherwise.
  *   Branch on `error.info.code`.
  */
-export async function loadBoard(
-  input: File | ArrayBuffer,
-): Promise<LoadedBoard> {
-  const buffer =
-    input instanceof ArrayBuffer ? input : await input.arrayBuffer();
+export async function loadBoard(input: BinaryInput): Promise<LoadedBoard> {
+  const buffer = await toArrayBuffer(input);
 
   if (isZip(buffer)) {
     return { format: "obz", archive: await extractOBZ(buffer) };

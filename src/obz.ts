@@ -6,7 +6,8 @@ import { OBFError } from "./errors";
 import { parseOBF } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
-import { isZip, unzip, zip } from "./zip";
+import { isZip, toArrayBuffer, unzip, zip } from "./zip";
+import type { BinaryInput } from "./zip";
 
 /**
  * Fully extracted contents of an `.obz` archive.
@@ -32,8 +33,8 @@ export interface ParsedOBZ {
 /**
  * Read a `File` and extract its contents as a parsed OBZ package.
  *
- * This relies on the browser `File` API; for Node environments,
- * read the file to an `ArrayBuffer` and pass it to {@link extractOBZ} instead.
+ * A thin convenience wrapper — {@link extractOBZ} accepts a `File` directly,
+ * so this exists only for the naming symmetry with {@link loadOBF}.
  *
  * @param file - A `File` handle pointing to an `.obz` archive.
  * @returns The parsed manifest, boards, root board, and binary resources.
@@ -42,14 +43,14 @@ export interface ParsedOBZ {
  *   this delegates to.
  */
 export async function loadOBZ(file: File): Promise<ParsedOBZ> {
-  const archive = await file.arrayBuffer();
-  return extractOBZ(archive);
+  return extractOBZ(file);
 }
 
 /**
  * Decompress an OBZ archive and return its manifest, boards, and resources.
  *
- * @param archive - The OBZ archive as an `ArrayBuffer`.
+ * @param archive - The OBZ archive as a `File`, `Blob`, `ArrayBuffer`, or
+ *   `ArrayBufferView` (e.g. a Node `Buffer`).
  * @returns A {@link ParsedOBZ} with the archive's manifest, boards, root
  *          board, and resources.
  *
@@ -58,12 +59,14 @@ export async function loadOBZ(file: File): Promise<ParsedOBZ> {
  *   `"invalid-manifest"` (bad manifest), `"missing-board"`,
  *   `"board-id-mismatch"`, or `"invalid-board"` (a board fails validation).
  */
-export async function extractOBZ(archive: ArrayBuffer): Promise<ParsedOBZ> {
-  if (!isZip(archive)) {
+export async function extractOBZ(archive: BinaryInput): Promise<ParsedOBZ> {
+  const buffer = await toArrayBuffer(archive);
+
+  if (!isZip(buffer)) {
     throw new OBFError({ code: "not-zip" });
   }
 
-  const entries = await unzip(archive);
+  const entries = await unzip(buffer);
 
   const manifest = extractManifest(entries);
   const { boards, rootBoard } = extractBoards(manifest, entries);
