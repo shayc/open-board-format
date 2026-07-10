@@ -490,7 +490,9 @@ describe("OBFGridSchema", () => {
     const validGrid = {
       rows: 100,
       columns: 100,
-      order: Array.from({ length: 100 }, () => Array(100).fill(null)),
+      order: Array.from({ length: 100 }, () =>
+        Array.from({ length: 100 }, () => null),
+      ),
     };
 
     expect(OBFGridSchema.safeParse(validGrid).success).toBe(true);
