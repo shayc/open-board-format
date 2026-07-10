@@ -278,12 +278,21 @@ export type OBFButton = z.infer<typeof OBFButtonSchema>;
 /**
  * Row-and-column layout that arranges buttons by their IDs.
  */
+/**
+ * Upper bound on grid dimensions. A board only needs these to lay out cells;
+ * a consumer allocates rows × columns, so an unbounded value (e.g. 1e9) would
+ * exhaust memory. 100 is generous headroom over any real AAC board (~15–20)
+ * and caps the hostile worst case at 100 × 100 cells.
+ */
+const MAX_GRID_ROWS = 100;
+const MAX_GRID_COLUMNS = 100;
+
 export const OBFGridSchema = z
   .looseObject({
     /** Number of rows in the grid. */
-    rows: z.number().int().min(1),
+    rows: z.number().int().min(1).max(MAX_GRID_ROWS),
     /** Number of columns in the grid. */
-    columns: z.number().int().min(1),
+    columns: z.number().int().min(1).max(MAX_GRID_COLUMNS),
     /**
      * 2D array representing the order of buttons by their IDs.
      * Each sub-array corresponds to a row, and each element is a button ID or null for empty slots.

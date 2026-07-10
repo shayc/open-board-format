@@ -473,6 +473,30 @@ describe("OBFGridSchema", () => {
 
     expect(OBFGridSchema.safeParse(mismatchedColumns).success).toBe(false);
   });
+
+  test("rejects rows above the maximum", () => {
+    const hostileGrid = { rows: 1e9, columns: 1, order: [] };
+
+    expect(OBFGridSchema.safeParse(hostileGrid).success).toBe(false);
+  });
+
+  test("rejects columns above the maximum", () => {
+    const hostileGrid = { rows: 1, columns: 1e9, order: [] };
+
+    expect(OBFGridSchema.safeParse(hostileGrid).success).toBe(false);
+  });
+
+  test("accepts a large but sane grid at the maximum", () => {
+    const validGrid = {
+      rows: 100,
+      columns: 100,
+      order: Array.from({ length: 100 }, () =>
+        Array.from({ length: 100 }, () => null),
+      ),
+    };
+
+    expect(OBFGridSchema.safeParse(validGrid).success).toBe(true);
+  });
 });
 
 describe("OBFBoardSchema", () => {
