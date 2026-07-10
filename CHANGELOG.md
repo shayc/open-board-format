@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.3.0
+
+### Minor Changes
+
+- a36c1e5: Bound grid rows/columns (max 100)
+
 ## 1.2.0
 
 ### Minor Changes
