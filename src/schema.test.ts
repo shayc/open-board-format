@@ -167,42 +167,13 @@ describe("OBFLicenseSchema", () => {
 });
 
 describe("OBFMediaSchema", () => {
-  test("accepts valid media with URL", () => {
-    const validMedia = {
-      id: "img1",
-      url: "https://example.com/image.png",
-      content_type: "image/png",
-    };
-
-    expect(OBFMediaSchema.safeParse(validMedia).success).toBe(true);
-  });
-
-  test("accepts valid media with data URI", () => {
-    const validMedia = {
-      id: "img2",
-      data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
-      content_type: "image/png",
-    };
-
-    expect(OBFMediaSchema.safeParse(validMedia).success).toBe(true);
-  });
-
-  test("accepts valid media with path", () => {
-    const validMedia = {
-      id: "img3",
-      path: "images/icon.png",
-      content_type: "image/png",
-    };
-
-    expect(OBFMediaSchema.safeParse(validMedia).success).toBe(true);
-  });
-
-  test("accepts valid media with data_url", () => {
-    const validMedia = {
-      id: "img4",
-      data_url: "https://example.com/api/image",
-      content_type: "image/png",
-    };
+  test.each([
+    ["url", { url: "https://example.com/image.png" }],
+    ["data URI", { data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==" }],
+    ["path", { path: "images/icon.png" }],
+    ["data_url", { data_url: "https://example.com/api/image" }],
+  ])("accepts media referenced by %s", (_label, reference) => {
+    const validMedia = { id: "img", content_type: "image/png", ...reference };
 
     expect(OBFMediaSchema.safeParse(validMedia).success).toBe(true);
   });
@@ -241,31 +212,17 @@ describe("OBFSymbolInfoSchema", () => {
 });
 
 describe("OBFImageSchema", () => {
-  test("accepts valid image with symbol info", () => {
-    const validImage = {
+  test("extends media with optional symbol and dimensions", () => {
+    const withSymbol = {
       id: "img1",
-      symbol: {
-        set: "symbolstix",
-        filename: "happy.png",
-      },
+      symbol: { set: "symbolstix", filename: "happy.png" },
       width: 300,
       height: 300,
       content_type: "image/png",
     };
 
-    expect(OBFImageSchema.safeParse(validImage).success).toBe(true);
-  });
-
-  test("accepts valid image without symbol info", () => {
-    const validImage = {
-      id: "img2",
-      url: "https://example.com/image.png",
-      width: 200,
-      height: 200,
-      content_type: "image/png",
-    };
-
-    expect(OBFImageSchema.safeParse(validImage).success).toBe(true);
+    expect(OBFImageSchema.safeParse(withSymbol).success).toBe(true);
+    expect(OBFImageSchema.safeParse({ id: "img2" }).success).toBe(true);
   });
 });
 
@@ -286,12 +243,15 @@ describe("OBFButtonSchema", () => {
     expect(OBFButtonSchema.safeParse(missingId).success).toBe(false);
   });
 
-  test("rejects button with invalid action", () => {
-    const emptyAction = { id: "1", action: ":" };
-    const plainString = { id: "1", action: "hello" };
-
-    expect(OBFButtonSchema.safeParse(emptyAction).success).toBe(false);
-    expect(OBFButtonSchema.safeParse(plainString).success).toBe(false);
+  // Wiring only — the action grammar itself is covered by the action schema suites.
+  test("rejects an invalid action in both `action` and `actions`", () => {
+    expect(
+      OBFButtonSchema.safeParse({ id: "1", action: "hello" }).success,
+    ).toBe(false);
+    expect(
+      OBFButtonSchema.safeParse({ id: "1", actions: [":clear", "hello"] })
+        .success,
+    ).toBe(false);
   });
 
   test("accepts valid positioning bounds", () => {
@@ -366,15 +326,6 @@ describe("OBFButtonSchema", () => {
       expect(result.data.load_board?.id).toBe("1");
       expect(result.data.load_board?.path).toBe("boards/home.obf");
     }
-  });
-
-  test("rejects invalid action in actions array", () => {
-    const invalidActionsArray = {
-      id: "1",
-      actions: [":clear", "invalid-action", ":speak"],
-    };
-
-    expect(OBFButtonSchema.safeParse(invalidActionsArray).success).toBe(false);
   });
 
   test("rejects invalid URL in load_board", () => {
@@ -511,30 +462,22 @@ describe("OBFBoardSchema", () => {
     expect(OBFBoardSchema.safeParse(minimalBoard).success).toBe(true);
   });
 
-  test("requires format field", () => {
-    const missingFormat = {
-      id: "1",
-      buttons: [],
-      grid: { rows: 1, columns: 1, order: [[]] },
-    };
-
-    expect(OBFBoardSchema.safeParse(missingFormat).success).toBe(false);
-  });
-
-  test("requires buttons field", () => {
-    const missingButtons = {
-      format: "open-board-0.1",
-      id: "1",
-      grid: { rows: 1, columns: 1, order: [[]] },
-    };
-
-    expect(OBFBoardSchema.safeParse(missingButtons).success).toBe(false);
-  });
-
-  test("requires grid field", () => {
-    const missingGrid = { format: "open-board-0.1", id: "1", buttons: [] };
-
-    expect(OBFBoardSchema.safeParse(missingGrid).success).toBe(false);
+  test.each([
+    [
+      "format",
+      { id: "1", buttons: [], grid: { rows: 1, columns: 1, order: [[]] } },
+    ],
+    [
+      "buttons",
+      {
+        format: "open-board-0.1",
+        id: "1",
+        grid: { rows: 1, columns: 1, order: [[]] },
+      },
+    ],
+    ["grid", { format: "open-board-0.1", id: "1", buttons: [] }],
+  ])("requires the %s field", (_field, board) => {
+    expect(OBFBoardSchema.safeParse(board).success).toBe(false);
   });
 
   test("rejects invalid format version pattern", () => {
@@ -560,38 +503,32 @@ describe("OBFManifestSchema", () => {
     expect(OBFManifestSchema.safeParse(validManifest).success).toBe(true);
   });
 
-  test("rejects missing format field", () => {
-    const missingFormat = {
-      root: "boards/main.obf",
-      paths: { boards: { main: "boards/main.obf" }, images: {} },
-    };
-
-    expect(OBFManifestSchema.safeParse(missingFormat).success).toBe(false);
-  });
-
-  test("rejects missing root field", () => {
-    const missingRoot = {
-      format: "open-board-0.1",
-      paths: { boards: { main: "boards/main.obf" }, images: {} },
-    };
-
-    expect(OBFManifestSchema.safeParse(missingRoot).success).toBe(false);
-  });
-
-  test("requires paths field", () => {
-    const missingPaths = { format: "open-board-0.1", root: "boards/main.obf" };
-
-    expect(OBFManifestSchema.safeParse(missingPaths).success).toBe(false);
-  });
-
-  test("requires boards in paths", () => {
-    const missingBoards = {
-      format: "open-board-0.1",
-      root: "boards/main.obf",
-      paths: { images: {} },
-    };
-
-    expect(OBFManifestSchema.safeParse(missingBoards).success).toBe(false);
+  test.each([
+    [
+      "format",
+      {
+        root: "boards/main.obf",
+        paths: { boards: { main: "boards/main.obf" }, images: {} },
+      },
+    ],
+    [
+      "root",
+      {
+        format: "open-board-0.1",
+        paths: { boards: { main: "boards/main.obf" }, images: {} },
+      },
+    ],
+    ["paths", { format: "open-board-0.1", root: "boards/main.obf" }],
+    [
+      "paths.boards",
+      {
+        format: "open-board-0.1",
+        root: "boards/main.obf",
+        paths: { images: {} },
+      },
+    ],
+  ])("requires the %s field", (_field, manifest) => {
+    expect(OBFManifestSchema.safeParse(manifest).success).toBe(false);
   });
 
   test("rejects root not listed in paths.boards", () => {

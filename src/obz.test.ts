@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
 import {
-  expectOBFError,
   expectOBFErrorAsync,
   makeBoard,
   readFixtureArrayBuffer,
@@ -22,18 +21,6 @@ describe("parseManifest", () => {
     expect(manifest.format).toBe("open-board-0.1");
     expect(manifest.root).toBe("boards/test.obf");
     expect(manifest.paths.boards.test).toBe("boards/test.obf");
-  });
-
-  test("throws when root is not listed in paths.boards", () => {
-    const rootNotListed = JSON.stringify({
-      format: "open-board-0.1",
-      root: "boards/ghost.obf",
-      paths: { boards: { test: "boards/test.obf" }, images: {} },
-    });
-
-    expect(expectOBFError(() => parseManifest(rootNotListed)).code).toBe(
-      "invalid-manifest",
-    );
   });
 });
 
@@ -208,26 +195,20 @@ describe("extractOBZ", () => {
   });
 });
 
+// A one-line wrapper over extractOBZ: all it can get wrong is the File read or
+// dropping `options`, so both are asserted here and the rest is extractOBZ's.
 describe("loadOBZ", () => {
-  test("loads OBZ package from File object", async () => {
+  test("reads a File and forwards limits to extraction", async () => {
     const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
     const file = new File([obzBlob], "test.obz", { type: "application/zip" });
 
     const result = await loadOBZ(file);
-
     expect(result.manifest.root).toBe("boards/test.obf");
-    expect(result.boards.get("test")).toBeDefined();
     expect(result.rootBoard.id).toBe("test");
-  });
-
-  test("passes limits through to extraction", async () => {
-    const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
-    const file = new File([obzBlob], "test.obz", { type: "application/zip" });
 
     const info = await expectOBFErrorAsync(
       loadOBZ(file, { limits: { maxTotalOriginalSize: 10 } }),
     );
-
     expect(info.code).toBe("archive-too-large");
   });
 });

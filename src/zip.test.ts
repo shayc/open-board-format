@@ -109,18 +109,15 @@ describe("unzip limits", () => {
   const filesOf = (...sizes: number[]) =>
     new Map(sizes.map((size, i) => [`file-${i}.bin`, new Uint8Array(size)]));
 
-  test("no options, empty options, empty limits, and undefined options behave identically", async () => {
+  // `{ limits: {} }` installs the filter with no caps; the others skip it entirely.
+  test("no options, empty options, and empty limits behave identically", async () => {
     const zipped = await zip(filesOf(10, 20));
     const buffer = bytesToArrayBuffer(zipped);
 
     const bare = await unzip(buffer);
-    const emptyOptions = await unzip(buffer, {});
-    const emptyLimits = await unzip(buffer, { limits: {} });
-    const explicit = await unzip(buffer, undefined);
 
-    expect(emptyOptions).toEqual(bare);
-    expect(emptyLimits).toEqual(bare);
-    expect(explicit).toEqual(bare);
+    expect(await unzip(buffer, {})).toEqual(bare);
+    expect(await unzip(buffer, { limits: {} })).toEqual(bare);
   });
 
   test("rejects when an entry's declared size exceeds maxEntrySize", async () => {
