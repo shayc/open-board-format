@@ -6,9 +6,10 @@ import { parseManifest } from "./obz";
 import { expectOBFError } from "./test-utils";
 
 /**
- * Switching on `info.code` narrows to each variant's fields with no casts.
- * The `default` arm is reachable as a real union, and adding a new variant to
- * `OBFErrorInfo` without handling it here would be a compile error.
+ * Stands in for consumer code: switching on `info.code` narrows to each
+ * variant's fields with no casts, and the `default` arm still has a usable
+ * `info.code`. Exhaustiveness is enforced in `formatOBFError`, not here — the
+ * `default` arm below absorbs any variant added later.
  */
 function summarize(info: OBFErrorInfo): string {
   switch (info.code) {
@@ -59,43 +60,56 @@ describe("OBFError", () => {
     expect(error.cause).toBeInstanceOf(Error);
   });
 
-  test("derives a message for the archive-too-large maxEntries limit", () => {
-    const error = new OBFError({
-      code: "archive-too-large",
-      limit: "maxEntries",
-      maxEntries: 2,
-      entryCount: 3,
-      path: "sounds/extra.mp3",
-    });
+  /**
+   * Each `archive-too-large` limit gets its own message branch. Messages are
+   * explicitly not part of the stable contract, so assert that the branch names
+   * the numbers and path a reader needs — not its exact wording. The `info`
+   * payloads are pinned exactly in zip.test.ts.
+   */
+  test.each([
+    [
+      "maxEntries",
+      {
+        code: "archive-too-large",
+        limit: "maxEntries",
+        maxEntries: 2,
+        entryCount: 3,
+        path: "sounds/extra.mp3",
+      },
+      ["3", "2", "sounds/extra.mp3"],
+    ],
+    [
+      "maxEntrySize",
+      {
+        code: "archive-too-large",
+        limit: "maxEntrySize",
+        maxBytes: 50,
+        declaredBytes: 100,
+        path: "images/big.png",
+      },
+      ["100", "50", "images/big.png"],
+    ],
+    [
+      "maxTotalOriginalSize",
+      {
+        code: "archive-too-large",
+        limit: "maxTotalOriginalSize",
+        maxBytes: 100,
+        declaredBytes: 120,
+        path: "sounds/last.mp3",
+      },
+      ["120", "100", "sounds/last.mp3"],
+    ],
+  ] as const)(
+    "derives a message for the archive-too-large %s limit",
+    (_limit, info, expected) => {
+      const { message } = new OBFError(info);
 
-    expect(error.message).toBe(
-      'Invalid OBZ: entry count reached 3 at "sounds/extra.mp3", exceeding the 2-entry limit',
-    );
-  });
-
-  test("derives messages for the archive-too-large size limits", () => {
-    const entryError = new OBFError({
-      code: "archive-too-large",
-      limit: "maxEntrySize",
-      maxBytes: 50,
-      declaredBytes: 100,
-      path: "images/big.png",
-    });
-    expect(entryError.message).toBe(
-      'Invalid OBZ: entry "images/big.png" declares 100 bytes uncompressed, exceeding the 50-byte per-entry limit',
-    );
-
-    const totalError = new OBFError({
-      code: "archive-too-large",
-      limit: "maxTotalOriginalSize",
-      maxBytes: 100,
-      declaredBytes: 120,
-      path: "sounds/last.mp3",
-    });
-    expect(totalError.message).toBe(
-      'Invalid OBZ: declared uncompressed size reached 120 bytes at "sounds/last.mp3", exceeding the 100-byte total limit',
-    );
-  });
+      for (const fragment of expected) {
+        expect(message).toContain(fragment);
+      }
+    },
+  );
 
   test("derives a message for the internal variant from its detail", () => {
     const error = new OBFError(
