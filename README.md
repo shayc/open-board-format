@@ -4,7 +4,7 @@
 [![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/npm/l/@shayc/open-board-format.svg)](LICENSE)
 
-A TypeScript toolkit for [Open Board Format](https://www.openboardformat.org/) — the open standard for Augmentative and Alternative Communication (AAC) boards. OBF (`.obf`) is a JSON file describing a single communication board: buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more boards with their media and a `manifest.json`. This package parses, validates, and creates both.
+A TypeScript toolkit that parses, validates, and creates [Open Board Format](https://www.openboardformat.org/) files — the open standard for Augmentative and Alternative Communication (AAC) boards. OBF (`.obf`) is a JSON file describing a single communication board: buttons, images, sounds, grid layout, metadata. OBZ (`.obz`) is a ZIP archive bundling one or more boards with their media and a `manifest.json`. This package handles both, and powers [AAC Board AI](https://aacboard.app), an offline-first AAC web app.
 
 ```
 my-board.obz
@@ -21,7 +21,7 @@ my-board.obz
 - **Browser and Node.js 22+** — pure ESM, works against `File`, `Blob`, `ArrayBuffer`, or any typed-array view (e.g. Node's `Buffer`).
 - **One entry point for either format** — `loadBoard` sniffs the bytes and tells you whether it found an `.obf` board or an `.obz` package.
 - **Spec-faithful round trips** — unknown fields are preserved rather than stripped, so vendor extensions allowed by the OBF spec survive `parseOBF` → `stringifyOBF`.
-- **Small footprint** — one runtime dependency ([fflate](https://github.com/101arrowz/fflate)) plus Zod as a peer, tree-shakeable, no side effects.
+- **Small footprint** — ~11 kB min+gzip including the single runtime dependency ([fflate](https://github.com/101arrowz/fflate)); Zod is a peer, and the package is tree-shakeable with no side effects.
 
 **Contents:** [Install](#install) · [Quick start](#quick-start) · [Usage](#usage) · [API](#api) · [Errors](#errors) · [Security](#security) · [Scope](#scope) · [Versioning](#versioning) · [Contributing](#contributing) · [Related](#related) · [License](#license)
 
