@@ -1,7 +1,7 @@
 {
   "name": "@shayc/open-board-format",
   "version": "1.3.0",
-  "description": "A TypeScript toolkit for Open Board Format — the open standard for Augmentative and Alternative Communication (AAC) boards.",
+  "description": "Parse, validate, and create Open Board Format (.obf/.obz) files — the open standard for Augmentative and Alternative Communication (AAC) boards. TypeScript, browser and Node.js.",
   "license": "MIT",
   "author": "Shay Cojocaru <shayc@outlook.com>",
   "homepage": "https://github.com/shayc/open-board-format#readme",
@@ -16,10 +16,14 @@
     "aac",
     "aac-board",
     "assistive-technology",
+    "augmentative-alternative-communication",
     "communication-board",
     "obf",
     "obz",
-    "open-board-format"
+    "open-board-format",
+    "parser",
+    "validator",
+    "zod"
   ],
   "type": "module",
   "sideEffects": false,
