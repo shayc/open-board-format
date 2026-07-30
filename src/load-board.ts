@@ -25,8 +25,7 @@ import { isZip, toArrayBuffer } from "./zip";
  * ```
  */
 export type LoadedBoard =
-  | { format: "obz"; archive: ParsedOBZ }
-  | { format: "obf"; board: OBFBoard };
+  { format: "obz"; archive: ParsedOBZ } | { format: "obf"; board: OBFBoard };
 
 /**
  * Detect whether the input is a single OBF board or an OBZ package and load it
