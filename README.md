@@ -1,16 +1,20 @@
 # `@shayc/open-board-format`
 
-[![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
-[![CI status](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/npm/l/@shayc/open-board-format.svg)](LICENSE)
+Parse, validate, and create [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for augmentative and alternative communication (AAC) applications in TypeScript or JavaScript.
 
-Parse, structurally validate, and create [Open Board Format](https://www.openboardformat.org/) boards (`.obf`) and archives (`.obz`) in TypeScript or JavaScript. Use it to add augmentative and alternative communication (AAC) board import and export without implementing schemas, manifests, or ZIP handling.
+Add AAC board import and export without implementing schemas, manifests, or archive handling yourself.
 
-`loadBoard` detects either format from its bytes. `createOBZ` validates boards, generates the manifest, and checks declared media. Unknown fields are preserved, and every public OBF model includes an exported [Zod](https://zod.dev/) schema and inferred type.
+The package handles format detection, validation, archive creation, and schema access so applications can focus on board experiences instead of file handling.
 
-Pure ESM for Node.js 22+ and modern browsers. This package handles data and archives—it does not render boards, play media, fetch remote resources, or resolve navigation and media references. It powers [AAC Board AI](https://github.com/shayc/aac-board-ai) ([live app](https://aacboard.app)).
+## Features
 
-**Jump to:** [Choose an API](#choose-an-api) · [Usage](#usage) · [Validation behavior](#validation-behavior) · [API reference](#api-reference) · [Errors](#errors) · [Security](#security)
+- Load OBF or OBZ through one byte-based format detection API.
+- Create OBZ archives with generated manifests and validated media resources.
+- Use exported [Zod](https://zod.dev/) schemas and inferred TypeScript types.
+- Preserve unknown fields, including vendor extensions.
+- Run as pure ESM in Node.js 22+ and modern browsers.
+
+It focuses on board data and archives only. It does not render boards, play media, fetch remote resources, or resolve navigation and media references.
 
 ## Install
 
@@ -18,7 +22,7 @@ Pure ESM for Node.js 22+ and modern browsers. This package handles data and arch
 npm install @shayc/open-board-format zod
 ```
 
-`zod` `^4.4.3` is a required peer dependency. Installing it explicitly keeps setup consistent across package managers and lets this package share your application's Zod instance.
+`zod ^4.4.3` is a required peer dependency.
 
 ## Quick start
 
@@ -33,27 +37,12 @@ export async function loadRootBoard(input: BinaryInput): Promise<OBFBoard> {
 }
 ```
 
-`BinaryInput` is `File | Blob | ArrayBuffer | ArrayBufferView`, so browser files, fetched blobs, typed arrays, and Node.js `Buffer` values work directly. Detection uses the bytes, not the filename.
+`BinaryInput` accepts `File`, `Blob`, `ArrayBuffer`, and `ArrayBufferView` values, including browser files, fetched blobs, typed arrays, and Node.js `Buffer` values. `loadBoard` detects the format from the bytes, not the filename.
 
-## Choose an API
+## Formats
 
-| You have                                | Use                                          | Result                 |
-| --------------------------------------- | -------------------------------------------- | ---------------------- |
-| OBF JSON text                           | `parseOBF(json)`                             | Validated `OBFBoard`   |
-| An already-parsed unknown value         | `validateOBF(value)`                         | Validated `OBFBoard`   |
-| A known OBF `File`                      | `loadOBF(file)`                              | `Promise<OBFBoard>`    |
-| A known OBZ `File`                      | `loadOBZ(file, options?)`                    | `Promise<ParsedOBZ>`   |
-| OBZ binary data                         | `extractOBZ(input, options?)`                | `Promise<ParsedOBZ>`   |
-| OBF or OBZ binary data                  | `loadBoard(input, options?)`                 | `Promise<LoadedBoard>` |
-| Boards and optional media bytes         | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`        |
-| Custom validation or schema composition | Exported `*Schema` values                    | Zod parse result       |
-
-Here, `File` means the Web Platform `File` object, not a filesystem path. For Node.js `Buffer` values or other binary input, use `loadBoard` for either format or `extractOBZ` for known OBZ input.
-
-## Formats at a glance
-
-- OBF (`.obf`) is one JSON communication board.
-- OBZ (`.obz`) is a ZIP package containing one or more boards and optional media.
+- **OBF (`.obf`)** is one JSON communication board.
+- **OBZ (`.obz`)** is a ZIP archive containing one or more boards and optional media.
 
 ```text
 my-board.obz
@@ -66,30 +55,41 @@ my-board.obz
     └── hello.mp3
 ```
 
-This library requires `manifest.json` at the archive root for every OBZ package, including packages containing one board.
+Every OBZ archive requires `manifest.json` at its root, even when it contains only one board.
 
-## Usage
+### Which function should I call?
 
-### Read an OBZ package
+- Unknown file: `loadBoard(input)`
+- Known `.obf` file: `loadOBF(file)`
+- Known `.obz` input: `extractOBZ(input)`
+- Creating an archive: `createOBZ(...)`
+
+See the [API reference](#api-reference) for the complete function list. Here, `File` means the Web Platform object, not a filesystem path.
+
+## Examples
+
+### Read an OBZ archive
 
 ```ts
 import { extractOBZ } from "@shayc/open-board-format";
-import type { BinaryInput, ParsedOBZ } from "@shayc/open-board-format";
 
-export function extractPackage(input: BinaryInput): Promise<ParsedOBZ> {
-  return extractOBZ(input);
-}
+const archive = await extractOBZ(obzBytes);
 ```
 
-- `rootBoard` is the board referenced by `manifest.root`.
-- `boards` is a `Map` keyed by board ID.
-- `resources` contains the raw bytes of every file entry, including `manifest.json`, board files, media, and unrelated extra files. Directory entries are omitted.
+The returned `ParsedOBZ` contains:
 
-For untrusted input, configure [extraction limits](#security) appropriate for your application.
+- `manifest`: the validated OBZ manifest.
+- `rootBoard`: the board referenced by `manifest.root`.
+- `boards`: a `Map` keyed by board ID.
+- `resources`: a `Map` containing the raw bytes of every file entry.
 
-### Create an OBZ package
+`resources` includes the manifest, board files, media, and unrelated extra files. Directory-marker entries are omitted.
 
-Buttons can reference media by ID. An entry in `images` or `sounds` can declare an archive `path`, and the `resources` map supplies the bytes for that path. `createOBZ` throws when a declared image or sound path has no matching resource.
+For untrusted archives, configure [extraction limits](#extraction-limits).
+
+### Create an OBZ archive
+
+Buttons reference media by ID. Image and sound records declare archive paths, while the `resources` map supplies the bytes stored at those paths.
 
 ```ts
 import { readFile, writeFile } from "node:fs/promises";
@@ -111,9 +111,11 @@ const blob = await createOBZ([board], "board-1", resources);
 await writeFile("my-board.obz", new Uint8Array(await blob.arrayBuffer()));
 ```
 
-The manifest is generated automatically. Boards are written to `boards/<encoded-id>.obf`, and `rootBoardId` selects the entry board. `createOBZ` checks duplicate board IDs, unknown roots, generated-path collisions, conflicting media paths, and missing declared media resources. It does not resolve `load_board` links or button-to-media references.
+`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry board.
 
-### Use the schemas directly
+Before writing the archive, it checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
+
+### Validate a board
 
 ```ts
 import { OBFBoardSchema } from "@shayc/open-board-format";
@@ -122,82 +124,98 @@ export const validateBoard = (value: unknown) =>
   OBFBoardSchema.safeParse(value);
 ```
 
-Use Zod's `.extend()`, `.pick()`, or other composition APIs to build application-specific contracts from the exported schemas.
+Every public OBF data model has a matching Zod schema export with a `Schema` suffix. The schemas can also be composed with Zod APIs such as `.extend()` and `.pick()`.
 
 ## Validation behavior
 
-Validation returns a parsed copy and may normalize known fields:
+Validation returns a parsed copy of the input. Known fields may be normalized during parsing:
 
-- Numeric IDs are converted to strings.
+- Numeric IDs become strings.
 - Empty optional IDs, URLs, and email addresses become `undefined`.
-- Unknown properties are preserved at every loose-object level, whether or not they use the `ext_` prefix.
+- Unknown properties are preserved at every loose-object level, with or without an `ext_` prefix.
+
+Structural validation checks:
+
 - URL and email fields are syntax-checked.
-- Grid dimensions must be integers from 1 through 100, and `order` must exactly match `rows` and `columns`.
-- A positioned button must provide all four of `top`, `left`, `width`, and `height`, each from 0 through 1.
-- Format versions must match `open-board-*`; validation does not restrict them to `open-board-0.1`.
+- Grid dimensions must be integers from 1 through 100.
+- `grid.order` must exactly match the declared row and column counts.
+- Positioned buttons must provide `top`, `left`, `width`, and `height`, each between 0 and 1.
+- Format versions must match `open-board-*`; they are not restricted to `open-board-0.1`.
 - An OBZ manifest root must appear in `paths.boards`.
 
-Validation is structural, not a complete OBF conformance or graph-integrity check. It does not enforce:
+Validation is not a complete OBF conformance or graph-integrity check. It does not enforce:
 
 - Unique button, image, or sound IDs.
-- That `grid.order`, `image_id`, `sound_id`, or `load_board` references resolve.
-- That every button on a board uses the same positioning mode.
+- Resolution of `grid.order`, `image_id`, `sound_id`, or `load_board` references.
+- A consistent positioning mode across every button on a board.
 - BCP 47 locale syntax, color syntax, MIME correctness, or safe HTML.
-- During extraction, that manifest-declared media paths exist or agree with board media entries.
+- During extraction, the existence of manifest-declared media files or their agreement with board media records.
 
 Add application-specific checks after parsing when those guarantees matter.
 
 ## API reference
 
-### OBF
+### Functions
+
+#### Board data
 
 | Function              | Returns             | Behavior                                                    |
 | --------------------- | ------------------- | ----------------------------------------------------------- |
 | `parseOBF(json)`      | `OBFBoard`          | Parse JSON and validate a board; strips a leading UTF-8 BOM |
 | `validateOBF(value)`  | `OBFBoard`          | Validate and normalize an unknown value                     |
-| `stringifyOBF(board)` | `string`            | Two-space JSON serialization; does not revalidate           |
+| `stringifyOBF(board)` | `string`            | Serialize as two-space JSON without revalidating            |
 | `loadOBF(file)`       | `Promise<OBFBoard>` | Read a `File`, then parse and validate it                   |
 
-### OBZ
+#### Archives and format detection
 
-| Function                                     | Returns              | Behavior                                                            |
-| -------------------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| `loadOBZ(file, options?)`                    | `Promise<ParsedOBZ>` | `File` convenience wrapper around `extractOBZ`                      |
-| `extractOBZ(input, options?)`                | `Promise<ParsedOBZ>` | Extract and validate the manifest and every manifest-declared board |
-| `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`      | Validate and package boards/resources with a generated manifest     |
-| `parseManifest(json)`                        | `OBFManifest`        | Parse and validate manifest JSON                                    |
+| Function                                     | Returns                | Behavior                                                            |
+| -------------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| `loadBoard(input, options?)`                 | `Promise<LoadedBoard>` | Detect OBF or OBZ from the bytes, then load it                      |
+| `loadOBZ(file, options?)`                    | `Promise<ParsedOBZ>`   | `File` convenience wrapper around `extractOBZ`                      |
+| `extractOBZ(input, options?)`                | `Promise<ParsedOBZ>`   | Extract and validate the manifest and every manifest-declared board |
+| `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`        | Validate and package boards and resources with a generated manifest |
+| `parseManifest(json)`                        | `OBFManifest`          | Parse and validate manifest JSON                                    |
 
-`ParsedOBZ` is `{ manifest, boards, rootBoard, resources }`.
+#### ZIP utilities
 
-### Format detection
+| Function                  | Returns                            | Behavior                                                 |
+| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` has a ZIP signature       |
+| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer` |
+| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers      |
 
-| Function                     | Returns                | Behavior                                                                                 |
-| ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
-| `loadBoard(input, options?)` | `Promise<LoadedBoard>` | Sniff OBF vs OBZ, then return `{ format: "obf", board }` or `{ format: "obz", archive }` |
+### Types and schemas
 
-### ZIP utilities
+`LoadedBoard` is a discriminated union:
 
-| Function                  | Returns                            | Behavior                                                |
-| ------------------------- | ---------------------------------- | ------------------------------------------------------- |
-| `isZip(buffer)`           | `boolean`                          | Check only for the two-byte `PK` prefix                 |
-| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` / `ArrayBuffer` |
-| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer`; omit directory-marker entries |
+```ts
+{ format: "obf", board: OBFBoard }
+  | { format: "obz", archive: ParsedOBZ }
+```
 
-### Exported types and schemas
+`ParsedOBZ` provides the validated archive contents:
 
-- **Boards and actions:** `OBFBoard`, `OBFGrid`, `OBFButton`, `OBFButtonAction`, `OBFSpellingAction`, `OBFSpecialtyAction`, `OBFLoadBoard`
-- **Media and metadata:** `OBFMedia`, `OBFImage`, `OBFSound`, `OBFSymbolInfo`, `OBFLicense`, `OBFID`, `OBFFormatVersion`, `OBFLocaleCode`, `OBFLocalizedStrings`, `OBFStrings`, `OBFManifest`
-- **Results and input:** `ParsedOBZ`, `LoadedBoard`, `BinaryInput`
-- **ZIP options:** `UnzipLimits`, `UnzipOptions`
-- **Errors:** `OBFError`, `OBFErrorInfo`, `OBFErrorCode`, `OBFIssue`
+```ts
+interface ParsedOBZ {
+  manifest: OBFManifest;
+  boards: Map<string, OBFBoard>;
+  rootBoard: OBFBoard;
+  resources: Map<string, Uint8Array>;
+}
+```
 
-Every board/media model type has a matching exported Zod schema with a `Schema` suffix: `OBFBoardSchema`, `OBFButtonSchema`, `OBFManifestSchema`, and so on. `ParsedOBZ`, `LoadedBoard`, binary/ZIP types, and error types do not have matching schemas.
+Main exports include:
 
-`OBFLocaleCode` is a locale string, typically BCP 47, but its syntax is not validated.
+- Board, action, media, metadata, and manifest types.
+- Matching Zod schemas, including `OBFBoardSchema` and `OBFManifestSchema`.
+- Input and archive types: `BinaryInput`, `ParsedOBZ`, and `LoadedBoard`.
+- Structured errors through `OBFError` and its related types.
 
-## Errors
+### Errors
 
-Expected parsing, validation, and archive-domain failures from the high-level functions use `OBFError`. Branch on `error.info.code`, not `error.message`.
+Expected parsing, validation, and archive-domain failures from the high-level APIs use `OBFError`.
+
+Branch on `error.info.code`, not `error.message`.
 
 ```ts
 import { loadBoard, OBFError } from "@shayc/open-board-format";
@@ -207,13 +225,21 @@ export async function openBoard(input: BinaryInput) {
   try {
     return await loadBoard(input);
   } catch (error) {
-    if (error instanceof OBFError) {
-      console.error(error.info.code, error.info);
+    if (!(error instanceof OBFError)) throw error;
+
+    if (error.info.code === "invalid-board") {
+      console.error(error.info.issues);
+    } else {
+      console.error(error.message);
     }
+
     throw error;
   }
 }
 ```
+
+<details>
+<summary><strong>Error codes</strong></summary>
 
 | Area           | `info.code`         | Additional fields                                  |
 | -------------- | ------------------- | -------------------------------------------------- |
@@ -234,21 +260,25 @@ export async function openBoard(input: BinaryInput) {
 | OBZ creation   | `zip-failed`        | —                                                  |
 | Internal       | `internal`          | `detail`                                           |
 
-- Validation failures put the `ZodError` on `error.cause` and its flat issue list on `error.info.issues`.
-- `not-json`, `unreadable-zip`, and `zip-failed` put the underlying parser or fflate error on `error.cause`.
-- `internal` indicates a library invariant failure that should be reported.
+</details>
 
-Schema `.parse()` calls throw `ZodError` directly; `NaN` limits throw `TypeError`, and native I/O, URI encoding, or JSON serialization errors can propagate.
+Validation failures expose the underlying `ZodError` as `error.cause` and provide its flat issue list through `error.info.issues`.
+
+`not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library invariant failure and should be reported.
+
+Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
 
 ## Security
 
 Treat OBZ archives and their contents as untrusted input.
 
+### Extraction limits
+
 ```ts
 import { extractOBZ } from "@shayc/open-board-format";
-import type { BinaryInput, ParsedOBZ } from "@shayc/open-board-format";
+import type { BinaryInput } from "@shayc/open-board-format";
 
-export function extractUntrusted(input: BinaryInput): Promise<ParsedOBZ> {
+export function extractUntrusted(input: BinaryInput) {
   return extractOBZ(input, {
     limits: {
       // Examples only—choose limits appropriate for your application.
@@ -260,34 +290,35 @@ export function extractUntrusted(input: BinaryInput): Promise<ParsedOBZ> {
 }
 ```
 
-The limits are optional and disabled by default. They are checked against sizes declared in ZIP metadata before inflation, and `maxEntries` caps the number of entries processed.
+Extraction limits are optional and disabled by default. Entry and total-size limits are checked against ZIP metadata before inflation, while `maxEntries` caps the number of entries processed.
 
-These are not hard memory guarantees for a malicious archive. ZIP metadata can be dishonest, and stored entries can produce more output than their declared uncompressed size. Also enforce an input archive-size limit outside this package; use isolation or a streaming design if your threat model requires a strict memory boundary.
+These limits reduce risk, but they are not strict memory guarantees. ZIP metadata can be dishonest, and stored entries can produce more output than their declared uncompressed size.
 
-Additional boundaries:
+Also enforce a limit on the compressed archive size before passing it to this package. Use process isolation or a streaming design when your threat model requires a strict memory boundary.
 
-- Archive entry paths are not sanitized. Validate them before writing entries to disk to prevent directory traversal.
+### Other boundaries
+
+- Archive entry paths are not sanitized. Validate them before writing files to disk to prevent directory traversal.
 - `description_html` is not sanitized. Sanitize it before inserting it into the DOM.
-- URLs and `data_url` values are validated syntactically but never fetched.
+- URLs and `data_url` values are validated syntactically but are never fetched.
 
 Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rather than opening a public issue.
 
-## Runtime and packaging
+## Runtime
 
-- Pure ESM; CommonJS is not supported.
-- Node.js `>=22`.
-- Modern browsers with `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
-- Node versions 22, 24, and 26 are covered by CI; browser engines are not currently tested in CI.
-- `fflate` is the only runtime dependency. `zod ^4.4.3` is a peer dependency.
-- The v1.3.2 full-entry build is 9.6 kB gzip using tsdown 0.22.14, with `fflate` bundled and Zod externalized.
-- The package declares `sideEffects: false` and exposes one typed entry point.
+- Pure ESM for Node.js `>=22` and modern browsers; CommonJS is unsupported.
+- Browser environments must provide `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
+- `fflate` is the only runtime dependency; `zod ^4.4.3` is a peer dependency.
+- CI covers Node.js 22, 24, and 26. Browser engines are not currently tested in CI.
 
 ## Project
 
-- **Versioning:** The public API follows semver; breaking changes to exported functions, types, schemas, or documented behavior ship as major versions. See [CHANGELOG.md](CHANGELOG.md).
+The public API follows semantic versioning. Breaking changes to exported APIs, schemas, or documented behavior ship as major releases.
+
+- **Changelog:** See [CHANGELOG.md](CHANGELOG.md).
 - **Support:** [Open an issue](https://github.com/shayc/open-board-format/issues) with a minimal reproduction, package version, runtime, and bundler where applicable.
 - **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands, tests, and the changeset workflow.
-- **Specification:** See the [official documentation](https://www.openboardformat.org/docs) or the included [offline mirror](docs/external/open-board-format.md).
+- **Specification:** See the [official OBF documentation](https://www.openboardformat.org/docs) or the included [offline mirror](docs/external/open-board-format.md).
 
 ## License
 
