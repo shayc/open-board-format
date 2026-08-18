@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.3.2
+
+### Patch Changes
+
+- 6656f2f: Validate the Changesets v3 release flow after hardening CI checkout credentials.
+
 ## 1.3.1
 
 ### Patch Changes
