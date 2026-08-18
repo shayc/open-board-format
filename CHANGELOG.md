@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.3.3
+
+### Patch Changes
+
+- a58a344: Rewrite the README as a decision-first package guide with accurate API, validation, error, and security documentation.
+
 ## 1.3.2
 
 ### Patch Changes
