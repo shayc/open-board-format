@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
 [![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
 
-Parse, validate, and create [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for augmentative and alternative communication (AAC) applications in TypeScript or JavaScript.
+A TypeScript/JavaScript library for parsing, validating, and creating [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for AAC applications.
 
 Add Open Board Format import and export without implementing schemas, manifests, or archive handling yourself.
 
@@ -31,10 +31,10 @@ Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` value
 ```ts
 import { loadBoard } from "@shayc/open-board-format";
 
-const loaded = await loadBoard(file);
+const loaded = await loadBoard(input);
 ```
 
-`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. It returns a discriminated union: OBF files contain a board directly, while OBZ files contain an archive whose `rootBoard` is the entry point.
+`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. It returns a TypeScript discriminated union: OBF files contain a board directly, while OBZ files contain an archive whose `rootBoard` is the entry point.
 
 ```ts
 const board = loaded.format === "obf" ? loaded.board : loaded.archive.rootBoard;
