@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.3.4
+
+### Patch Changes
+
+- ea8b3f6: Clarify the README introduction and `loadBoard` usage example.
+
 ## 1.3.3
 
 ### Patch Changes
