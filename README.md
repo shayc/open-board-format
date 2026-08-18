@@ -5,9 +5,7 @@
 
 Parse, validate, and create [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for augmentative and alternative communication (AAC) applications in TypeScript or JavaScript.
 
-Add AAC board import and export without implementing schemas, manifests, or archive handling yourself.
-
-The package handles format detection, validation, archive creation, and schema access so applications can focus on board experiences instead of file handling.
+Add Open Board Format import and export without implementing schemas, manifests, or archive handling yourself.
 
 ## Features
 
@@ -15,7 +13,6 @@ The package handles format detection, validation, archive creation, and schema a
 - Create OBZ archives with generated manifests and validated media resources.
 - Use exported [Zod](https://zod.dev/) schemas and inferred TypeScript types.
 - Preserve unknown fields, including vendor extensions.
-- Run as pure ESM in Node.js 22+ and modern browsers.
 
 It focuses on board data and archives only. It does not render boards, play media, fetch remote resources, or resolve navigation and media references.
 
@@ -27,20 +24,21 @@ npm install @shayc/open-board-format zod
 
 `zod ^4.4.3` is a required peer dependency.
 
+Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` values use the same loading API. Pure ESM; CommonJS is not supported.
+
 ## Quick start
 
 ```ts
 import { loadBoard } from "@shayc/open-board-format";
-import type { BinaryInput, OBFBoard } from "@shayc/open-board-format";
 
-export async function loadRootBoard(input: BinaryInput): Promise<OBFBoard> {
-  const loaded = await loadBoard(input);
-
-  return loaded.format === "obf" ? loaded.board : loaded.archive.rootBoard;
-}
+const loaded = await loadBoard(file);
 ```
 
-`BinaryInput` accepts `File`, `Blob`, `ArrayBuffer`, and `ArrayBufferView` values, including browser files, fetched blobs, typed arrays, and Node.js `Buffer` values. `loadBoard` detects the format from the bytes, not the filename.
+`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. It returns a discriminated union: OBF files contain a board directly, while OBZ files contain an archive whose `rootBoard` is the entry point.
+
+```ts
+const board = loaded.format === "obf" ? loaded.board : loaded.archive.rootBoard;
+```
 
 ## Formats
 
@@ -92,31 +90,15 @@ For untrusted archives, configure [extraction limits](#extraction-limits).
 
 ### Create an OBZ archive
 
-Buttons reference media by ID. Image and sound records declare archive paths, while the `resources` map supplies the bytes stored at those paths.
+Given an existing board and its media resources:
 
 ```ts
-import { readFile, writeFile } from "node:fs/promises";
 import { createOBZ } from "@shayc/open-board-format";
-import type { OBFBoard } from "@shayc/open-board-format";
 
-const board: OBFBoard = {
-  format: "open-board-0.1",
-  id: "board-1",
-  buttons: [{ id: "btn-1", label: "Hello", image_id: "img-1" }],
-  grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-  images: [{ id: "img-1", path: "images/hello.png" }],
-};
-
-const pngBytes = await readFile("hello.png");
-const resources = new Map([["images/hello.png", pngBytes]]);
-
-const blob = await createOBZ([board], "board-1", resources);
-await writeFile("my-board.obz", new Uint8Array(await blob.arrayBuffer()));
+const blob = await createOBZ([existingBoard], existingBoard.id, resources);
 ```
 
 `createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry board.
-
-Before writing the archive, it checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
 
 ### Validate a board
 
@@ -129,7 +111,7 @@ export const validateBoard = (value: unknown) =>
 
 Every public OBF data model has a matching Zod schema export with a `Schema` suffix. The schemas can also be composed with Zod APIs such as `.extend()` and `.pick()`.
 
-## Validation behavior
+## Validation details
 
 Validation returns a parsed copy of the input. Known fields may be normalized during parsing:
 
@@ -158,7 +140,7 @@ Add application-specific checks after parsing when those guarantees matter.
 
 ## API reference
 
-### Functions
+### High-level API
 
 #### Board data
 
@@ -179,13 +161,7 @@ Add application-specific checks after parsing when those guarantees matter.
 | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`        | Validate and package boards and resources with a generated manifest |
 | `parseManifest(json)`                        | `OBFManifest`          | Parse and validate manifest JSON                                    |
 
-#### ZIP utilities
-
-| Function                  | Returns                            | Behavior                                                 |
-| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` has a ZIP signature       |
-| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer` |
-| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers      |
+Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
 
 ### Types and schemas
 
@@ -222,22 +198,15 @@ Branch on `error.info.code`, not `error.message`.
 
 ```ts
 import { loadBoard, OBFError } from "@shayc/open-board-format";
-import type { BinaryInput } from "@shayc/open-board-format";
 
-export async function openBoard(input: BinaryInput) {
-  try {
-    return await loadBoard(input);
-  } catch (error) {
-    if (!(error instanceof OBFError)) throw error;
-
-    if (error.info.code === "invalid-board") {
-      console.error(error.info.issues);
-    } else {
-      console.error(error.message);
-    }
-
-    throw error;
+try {
+  await loadBoard(file);
+} catch (error) {
+  if (error instanceof OBFError) {
+    console.error(error.info.code);
   }
+
+  throw error;
 }
 ```
 
@@ -270,6 +239,19 @@ Validation failures expose the underlying `ZodError` as `error.cause` and provid
 `not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library invariant failure and should be reported.
 
 Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
+
+<details>
+<summary><strong>Low-level ZIP utilities</strong></summary>
+
+The following exports are available for advanced archive workflows:
+
+| Function                  | Returns                            | Behavior                                                 |
+| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` has a ZIP signature       |
+| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer` |
+| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers      |
+
+</details>
 
 ## Security
 
