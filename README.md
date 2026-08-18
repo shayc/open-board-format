@@ -4,15 +4,11 @@
 [![CI status](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/npm/l/@shayc/open-board-format.svg)](LICENSE)
 
-Parse, structurally validate, and create [Open Board Format](https://www.openboardformat.org/) (`.obf` / `.obz`) files in TypeScript or JavaScript. Use it to add augmentative and alternative communication (AAC) board import and export to a browser or Node.js app without implementing format detection, schemas, manifests, or ZIP handling yourself.
+Parse, structurally validate, and create [Open Board Format](https://www.openboardformat.org/) boards (`.obf`) and archives (`.obz`) in TypeScript or JavaScript. Use it to add augmentative and alternative communication (AAC) board import and export without implementing schemas, manifests, or ZIP handling.
 
-- One function accepts either format: `loadBoard(input)`.
-- Every public OBF model has an exported [Zod](https://zod.dev/) schema and inferred TypeScript type.
-- Unknown fields are preserved, so `ext_*` vendor data survives parsing and serialization.
-- `createOBZ` generates the manifest, validates boards, and checks declared media resources.
-- Pure ESM for Node.js 22+ and modern browsers; declares `sideEffects: false`.
+`loadBoard` detects either format from its bytes. `createOBZ` validates boards, generates the manifest, and checks declared media. Unknown fields are preserved, and every public OBF model includes an exported [Zod](https://zod.dev/) schema and inferred type.
 
-This is a data-format library. It does not render boards, play media, or fetch remote resources. It powers [AAC Board AI](https://aacboard.app).
+Pure ESM for Node.js 22+ and modern browsers. This package handles data and archives—it does not render boards, play media, fetch remote resources, or resolve navigation and media references. It powers [AAC Board AI](https://github.com/shayc/aac-board-ai) ([live app](https://aacboard.app)).
 
 **Jump to:** [Choose an API](#choose-an-api) · [Usage](#usage) · [Validation behavior](#validation-behavior) · [API reference](#api-reference) · [Errors](#errors) · [Security](#security)
 
@@ -23,8 +19,6 @@ npm install @shayc/open-board-format zod
 ```
 
 `zod` `^4.4.3` is a required peer dependency. Installing it explicitly keeps setup consistent across package managers and lets this package share your application's Zod instance.
-
-The package is ESM only. CommonJS `require()` is not supported.
 
 ## Quick start
 
@@ -41,15 +35,6 @@ export async function loadRootBoard(input: BinaryInput): Promise<OBFBoard> {
 
 `BinaryInput` is `File | Blob | ArrayBuffer | ArrayBufferView`, so browser files, fetched blobs, typed arrays, and Node.js `Buffer` values work directly. Detection uses the bytes, not the filename.
 
-```ts
-import { readFile } from "node:fs/promises";
-
-const board = await loadRootBoard(await readFile("my-board.obz"));
-console.log(board.name, board.buttons.length);
-```
-
-For untrusted OBZ input, choose extraction limits and read their [security limitations](#security) before treating them as a resource boundary.
-
 ## Choose an API
 
 | You have                                | Use                                          | Result                 |
@@ -64,8 +49,6 @@ For untrusted OBZ input, choose extraction limits and read their [security limit
 | Custom validation or schema composition | Exported `*Schema` values                    | Zod parse result       |
 
 Here, `File` means the Web Platform `File` object, not a filesystem path. For Node.js `Buffer` values or other binary input, use `loadBoard` for either format or `extractOBZ` for known OBZ input.
-
-Use `loadBoard` unless you already know the format or already hold parsed JSON.
 
 ## Formats at a glance
 
@@ -94,20 +77,15 @@ import { extractOBZ } from "@shayc/open-board-format";
 import type { BinaryInput, ParsedOBZ } from "@shayc/open-board-format";
 
 export function extractPackage(input: BinaryInput): Promise<ParsedOBZ> {
-  return extractOBZ(input, {
-    limits: {
-      // Examples only—choose limits appropriate for your application.
-      maxEntrySize: 100 * 1024 ** 2, // 100 MiB
-      maxTotalOriginalSize: 500 * 1024 ** 2, // 500 MiB
-      maxEntries: 10_000,
-    },
-  });
+  return extractOBZ(input);
 }
 ```
 
 - `rootBoard` is the board referenced by `manifest.root`.
 - `boards` is a `Map` keyed by board ID.
 - `resources` contains the raw bytes of every file entry, including `manifest.json`, board files, media, and unrelated extra files. Directory entries are omitted.
+
+For untrusted input, configure [extraction limits](#security) appropriate for your application.
 
 ### Create an OBZ package
 
@@ -140,15 +118,8 @@ The manifest is generated automatically. Boards are written to `boards/<encoded-
 ```ts
 import { OBFBoardSchema } from "@shayc/open-board-format";
 
-export function inspectBoard(value: unknown): void {
-  const result = OBFBoardSchema.safeParse(value);
-
-  if (result.success) {
-    console.log(result.data.buttons);
-  } else {
-    console.error(result.error.issues);
-  }
-}
+export const validateBoard = (value: unknown) =>
+  OBFBoardSchema.safeParse(value);
 ```
 
 Use Zod's `.extend()`, `.pick()`, or other composition APIs to build application-specific contracts from the exported schemas.
@@ -230,25 +201,15 @@ Expected parsing, validation, and archive-domain failures from the high-level fu
 
 ```ts
 import { loadBoard, OBFError } from "@shayc/open-board-format";
-import type { BinaryInput, LoadedBoard } from "@shayc/open-board-format";
+import type { BinaryInput } from "@shayc/open-board-format";
 
-export async function openBoard(input: BinaryInput): Promise<LoadedBoard> {
+export async function openBoard(input: BinaryInput) {
   try {
     return await loadBoard(input);
   } catch (error) {
-    if (!(error instanceof OBFError)) throw error;
-
-    switch (error.info.code) {
-      case "invalid-board":
-        console.error(error.info.issues);
-        break;
-      case "missing-board":
-        console.error(error.info.boardId, error.info.path);
-        break;
-      default:
-        console.error(error.message);
+    if (error instanceof OBFError) {
+      console.error(error.info.code, error.info);
     }
-
     throw error;
   }
 }
@@ -321,29 +282,12 @@ Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rathe
 - The v1.3.2 full-entry build is 9.6 kB gzip using tsdown 0.22.14, with `fflate` bundled and Zod externalized.
 - The package declares `sideEffects: false` and exposes one typed entry point.
 
-## Scope
+## Project
 
-This package handles the OBF/OBZ data and archive layer. It intentionally does not:
-
-- Render boards, lay out UI, play sounds, or provide AAC interaction behavior.
-- Fetch media or linked boards from `url` / `data_url` values.
-- Resolve navigation or media references into an application graph.
-- Provide complete semantic conformance validation for the OBF specification.
-
-## Versioning and support
-
-The public API follows semver. Breaking changes to exported functions, types, schemas, or documented behavior ship as major versions. See [CHANGELOG.md](CHANGELOG.md).
-
-For bugs or questions, [open an issue](https://github.com/shayc/open-board-format/issues) with a minimal OBF/OBZ reproduction, package version, runtime, and bundler where applicable. Report vulnerabilities privately by email instead.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for Node.js requirements, development commands, tests, and the changeset workflow.
-
-## Related
-
-- [Open Board Format specification](https://www.openboardformat.org/docs) — official format documentation. An offline mirror is included at [docs/external/open-board-format.md](docs/external/open-board-format.md).
-- [AAC Board AI](https://github.com/shayc/aac-board-ai) — an offline-first AAC web app using this package ([live app](https://aacboard.app)).
+- **Versioning:** The public API follows semver; breaking changes to exported functions, types, schemas, or documented behavior ship as major versions. See [CHANGELOG.md](CHANGELOG.md).
+- **Support:** [Open an issue](https://github.com/shayc/open-board-format/issues) with a minimal reproduction, package version, runtime, and bundler where applicable.
+- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands, tests, and the changeset workflow.
+- **Specification:** See the [official documentation](https://www.openboardformat.org/docs) or the included [offline mirror](docs/external/open-board-format.md).
 
 ## License
 
