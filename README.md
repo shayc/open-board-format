@@ -1,5 +1,8 @@
 # `@shayc/open-board-format`
 
+[![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
+[![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
+
 Parse, validate, and create [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for augmentative and alternative communication (AAC) applications in TypeScript or JavaScript.
 
 Add AAC board import and export without implementing schemas, manifests, or archive handling yourself.
