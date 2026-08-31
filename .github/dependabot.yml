@@ -7,9 +7,12 @@ updates:
     groups:
       types:
         patterns: ["@types/*"]
+      oxc:
+        patterns: ["oxfmt", "oxlint", "oxlint-tsgolint"]
       dev-deps:
         dependency-type: development
         update-types: ["minor", "patch"]
+        exclude-patterns: ["oxfmt", "oxlint", "oxlint-tsgolint"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
