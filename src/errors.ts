@@ -1,11 +1,10 @@
 /**
  * Typed errors for `@shayc/open-board-format`.
  *
- * Every failure thrown by this package is an {@link OBFError} carrying a
- * discriminated {@link OBFErrorInfo} on its `info` property. Switch on
- * `error.info.code` to get exactly the structured context for that failure —
- * the human-readable `message` is derived from `info` and is not part of the
- * stable contract.
+ * Expected parsing, validation, and archive failures use {@link OBFError}. Each
+ * carries a discriminated {@link OBFErrorInfo} on its `info` property. Switch
+ * on `error.info.code` for the structured context; the human-readable
+ * `message` is derived from `info` and is not part of the stable contract.
  *
  * ```ts
  * try {
@@ -40,7 +39,7 @@ export type OBFIssue = z.core.$ZodIssue;
  * Switch on `code`; each variant carries the fields relevant to it. When a
  * failure wraps an underlying error it lives on the standard `error.cause`,
  * never duplicated here. The only optional field is `invalid-board`'s
- * `boardId`, absent when validation runs on a value with no known id.
+ * `boardId`, absent when validation runs before a board `id` is known.
  */
 export type OBFErrorInfo =
   // --- decoding (underlying parser/decompressor error on `error.cause`) ---
@@ -82,7 +81,7 @@ export type OBFErrorInfo =
   | { code: "missing-manifest" }
   /** A board the manifest declares is absent from the archive. */
   | { code: "missing-board"; boardId: string; path: string }
-  /** A board's `id` disagrees with the id the manifest declares for it. */
+  /** A board's `id` disagrees with its manifest key. */
   | {
       code: "board-id-mismatch";
       path: string;
@@ -101,7 +100,7 @@ export type OBFErrorInfo =
       mediaId: string;
       path: string;
     }
-  /** Two boards declare the same media id with different paths. */
+  /** Two boards declare the same media ID with different paths. */
   | {
       code: "conflicting-paths";
       kind: "image" | "sound";
@@ -119,7 +118,7 @@ export type OBFErrorInfo =
 export type OBFErrorCode = OBFErrorInfo["code"];
 
 /**
- * The single error type thrown by `@shayc/open-board-format`.
+ * Structured error for expected failures from `@shayc/open-board-format`.
  *
  * Branch on {@link OBFError.info} (a discriminated {@link OBFErrorInfo}) rather
  * than parsing {@link OBFError.message}. Any underlying error — a `JSON.parse`

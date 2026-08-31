@@ -130,7 +130,7 @@ describe("loadBoard", () => {
   });
 
   test("surfaces the OBZ extractor's error for a ZIP missing its manifest", async () => {
-    // A real ZIP so isZip passes and we exercise the OBZ branch, not the OBF one.
+    // Use a real ZIP so `isZip` selects the OBZ branch.
     const zipped = await zip(
       new Map([["boards/x.obf", new TextEncoder().encode("{}")]]),
     );

@@ -48,7 +48,7 @@ export type OBFFormatVersion = z.infer<typeof OBFFormatVersionSchema>;
  */
 export const OBFLocaleCodeSchema = z.string();
 
-/** Locale identifier, typically a BCP 47 language tag, e.g., `en`, `en-US`. See {@link OBFLocaleCodeSchema}. */
+/** Locale identifier, typically a BCP 47 language tag; accepts any string. See {@link OBFLocaleCodeSchema}. */
 export type OBFLocaleCode = z.infer<typeof OBFLocaleCodeSchema>;
 
 /**
@@ -120,7 +120,8 @@ export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
 /**
  * Common properties for media resources (images and sounds).
  *
- * When multiple references are provided, they should be used in the following order:
+ * Resolve multiple references in this order:
+ *
  * 1. `data`
  * 2. `path`
  * 3. `url`
@@ -167,7 +168,8 @@ export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
  * Image resource, extending {@link OBFMediaSchema} with optional
  * symbol and dimension properties.
  *
- * When resolving the image, consumers should prefer sources in this order:
+ * Resolve multiple image sources in this order:
+ *
  * 1. `data`
  * 2. `path`
  * 3. `url`
@@ -214,7 +216,7 @@ export const OBFLoadBoardSchema = z.looseObject({
 export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
 
 /**
- * Interactive element on a board, optionally linked to images, sounds, and actions.
+ * Interactive board element, optionally linked to images, sounds, and actions.
  */
 export const OBFButtonSchema = z
   .looseObject({
@@ -241,22 +243,21 @@ export const OBFButtonSchema = z
     /** Information to load another board when this button is activated. */
     load_board: OBFLoadBoardSchema.optional(),
     /**
-     * Background color of the button, typically `rgb`/`rgba`. Not
-     * strictly validated — any string is accepted.
+     * Background color, typically an `rgb()` or `rgba()` value. Accepts any
+     * string.
      */
     background_color: z.string().optional(),
     /**
-     * Border color of the button, typically `rgb`/`rgba`. Not strictly
-     * validated — any string is accepted.
+     * Border color, typically an `rgb()` or `rgba()` value. Accepts any string.
      */
     border_color: z.string().optional(),
-    /** Vertical position for absolute positioning (0.0 to 1.0). */
+    /** Vertical position for absolute positioning, from 0 to 1. */
     top: z.number().min(0).max(1).optional(),
-    /** Horizontal position for absolute positioning (0.0 to 1.0). */
+    /** Horizontal position for absolute positioning, from 0 to 1. */
     left: z.number().min(0).max(1).optional(),
-    /** Width of the button for absolute positioning (0.0 to 1.0). */
+    /** Width of the button for absolute positioning, from 0 to 1. */
     width: z.number().min(0).max(1).optional(),
-    /** Height of the button for absolute positioning (0.0 to 1.0). */
+    /** Height of the button for absolute positioning, from 0 to 1. */
     height: z.number().min(0).max(1).optional(),
   })
   .refine(
@@ -272,12 +273,9 @@ export const OBFButtonSchema = z
     },
   );
 
-/** Interactive element on a board, optionally linked to images, sounds, and actions. See {@link OBFButtonSchema}. */
+/** Interactive board element, optionally linked to images, sounds, and actions. See {@link OBFButtonSchema}. */
 export type OBFButton = z.infer<typeof OBFButtonSchema>;
 
-/**
- * Row-and-column layout that arranges buttons by their IDs.
- */
 /**
  * Upper bound on grid dimensions. A board only needs these to lay out cells;
  * a consumer allocates rows × columns, so an unbounded value (e.g. 1e9) would
@@ -287,16 +285,14 @@ export type OBFButton = z.infer<typeof OBFButtonSchema>;
 const MAX_GRID_ROWS = 100;
 const MAX_GRID_COLUMNS = 100;
 
+/** Row-and-column layout that arranges buttons by their IDs. */
 export const OBFGridSchema = z
   .looseObject({
     /** Number of rows in the grid. */
     rows: z.number().int().min(1).max(MAX_GRID_ROWS),
     /** Number of columns in the grid. */
     columns: z.number().int().min(1).max(MAX_GRID_COLUMNS),
-    /**
-     * 2D array representing the order of buttons by their IDs.
-     * Each sub-array corresponds to a row, and each element is a button ID or null for empty slots.
-     */
+    /** Button IDs by row; `null` marks an empty cell. */
     order: z.array(z.array(z.union([OBFIDSchema, z.null()]))),
   })
   .refine((g) => g.order.length === g.rows, {
@@ -317,7 +313,7 @@ export const OBFBoardSchema = z.looseObject({
   format: OBFFormatVersionSchema,
   /** Unique identifier for the board. */
   id: OBFIDSchema,
-  /** Locale of the board as a BCP 47 language tag, e.g., `en`, `en-US`. */
+  /** Locale identifier, typically a BCP 47 language tag such as `en` or `en-US`. */
   locale: OBFLocaleCodeSchema.optional(),
   /** List of buttons on the board. */
   buttons: z.array(OBFButtonSchema),

@@ -150,7 +150,7 @@ describe("OBFLicenseSchema", () => {
     expect(OBFLicenseSchema.safeParse(invalidEmail).success).toBe(false);
   });
 
-  test("coerces empty-string urls and email to undefined", () => {
+  test("coerces empty-string URLs and email to undefined", () => {
     const parsed = OBFLicenseSchema.parse({
       type: "CC-BY",
       copyright_notice_url: "",
@@ -178,13 +178,13 @@ describe("OBFMediaSchema", () => {
     expect(OBFMediaSchema.safeParse(validMedia).success).toBe(true);
   });
 
-  test("accepts media with only id (reference is optional)", () => {
+  test("accepts media with only `id` (reference is optional)", () => {
     const minimalMedia = { id: "x" };
 
     expect(OBFMediaSchema.safeParse(minimalMedia).success).toBe(true);
   });
 
-  test("coerces numeric id to string in nested object", () => {
+  test("coerces numeric `id` to string in nested object", () => {
     const result = OBFMediaSchema.parse({ id: 123 });
 
     expect(result.id).toBe("123");
@@ -237,13 +237,13 @@ describe("OBFButtonSchema", () => {
     expect(OBFButtonSchema.safeParse(withExtAction).success).toBe(true);
   });
 
-  test("rejects missing id", () => {
+  test("rejects missing `id`", () => {
     const missingId = { label: "Hello" };
 
     expect(OBFButtonSchema.safeParse(missingId).success).toBe(false);
   });
 
-  // Wiring only — the action grammar itself is covered by the action schema suites.
+  // Wiring only; the action schema suites cover the grammar.
   test("rejects an invalid action in both `action` and `actions`", () => {
     expect(
       OBFButtonSchema.safeParse({ id: "1", action: "hello" }).success,
@@ -339,7 +339,7 @@ describe("OBFButtonSchema", () => {
     expect(OBFButtonSchema.safeParse(invalidLoadBoardUrl).success).toBe(false);
   });
 
-  test("coerces empty-string media ids to undefined", () => {
+  test("coerces empty-string media IDs to undefined", () => {
     const parsed = OBFButtonSchema.parse({
       id: "1",
       image_id: "",

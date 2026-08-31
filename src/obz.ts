@@ -60,7 +60,7 @@ export async function loadOBZ(
  *   declared uncompressed sizes, checked before inflation. No limits are
  *   applied by default.
  * @returns A {@link ParsedOBZ} with the archive's manifest, boards, root
- *          board, and resources.
+ *   board, and resources.
  *
  * @throws {@link OBFError}; branch on `info.code`: `"not-zip"`,
  *   `"unreadable-zip"`, `"archive-too-large"` (a limit in `options.limits` is
@@ -130,16 +130,23 @@ export function parseManifest(json: string): OBFManifest {
  * Every failure is an {@link OBFError}; branch on `info.code`.
  *
  * @param boards - The boards to include in the archive.
- * @param rootBoardId - The ID of the board that serves as the archive's entry point.
- * @param resources - Optional map of file paths to binary content (images, sounds, etc.).
+ * @param rootBoardId - The entry-point board's ID.
+ * @param resources - Optional map of archive paths to binary content.
  * @returns A `Blob` containing the compressed OBZ archive.
  *
- * @throws {@link OBFError} `"unknown-root"` if `rootBoardId` does not match any of the supplied boards.
- * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share the same ID.
- * @throws {@link OBFError} `"invalid-board"` if a supplied board fails schema validation.
- * @throws {@link OBFError} `"conflicting-paths"` if two boards declare the same media ID with conflicting paths.
- * @throws {@link OBFError} `"missing-resource"` if a board declares an image or sound `path` with no matching entry in `resources`.
- * @throws {@link OBFError} `"path-collision"` if a `resources` entry would overwrite the generated `manifest.json` or a board file.
+ * @throws {@link OBFError} `"unknown-root"` if `rootBoardId` does not match any
+ *   supplied board.
+ * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share
+ *   the same ID.
+ * @throws {@link OBFError} `"invalid-board"` if a supplied board fails schema
+ *   validation.
+ * @throws {@link OBFError} `"conflicting-paths"` if two boards map the same
+ *   media ID to different paths.
+ * @throws {@link OBFError} `"missing-resource"` if a board declares an image
+ *   or sound `path` with no matching entry in `resources`.
+ * @throws {@link OBFError} `"path-collision"` if a resource would overwrite
+ *   the generated manifest or a board file.
+ * @throws {@link OBFError} `"zip-failed"` if archive compression fails.
  */
 export async function createOBZ(
   boards: OBFBoard[],
@@ -235,24 +242,23 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 
 /**
- * Derive a board's archive path from its id.
+ * Derive a board's archive path from its ID.
  *
- * Board ids are spec-legal as any non-empty string, but archive paths give
- * `/` and `\` structural meaning. Percent-encoding the id keeps the mapping
- * deterministic and collision-free without rejecting any id the schema
- * already allows — a `/` or `..` in the id just becomes part of a filename,
- * never a path segment.
+ * Board IDs may be any non-empty string, but archive paths give `/` and `\`
+ * structural meaning. Percent-encoding keeps the mapping deterministic and
+ * collision-free without rejecting any valid ID: `/` or `..` is encoded as
+ * filename text, never interpreted as a path segment.
  */
 function boardPath(id: string): string {
   return `boards/${encodeURIComponent(id)}.obf`;
 }
 
 /**
- * Walk every board's media collection and produce the `{ id -> path }` map
- * the spec calls "redundant but still required" for the OBZ manifest.
+ * Walk every board's media collection and produce the ID-to-path map the spec
+ * calls "redundant but still required" for the OBZ manifest.
  *
- * Throws when two boards declare the same media ID with conflicting paths
- * — a silent OBZ that points at a non-existent file is worse than a clear error.
+ * Throws when two boards map the same media ID to different paths. Without
+ * this check, the generated manifest could silently point to the wrong file.
  */
 function collectMediaPaths(
   boards: OBFBoard[],
@@ -286,8 +292,8 @@ function collectMediaPaths(
  * Assert that every media path the generated manifest declares exists as an
  * archive entry — the same contract {@link extractOBZ} assumes when reading.
  *
- * Only media that declared a `path` reach this check, so `url`/`data`-only
- * media are never flagged.
+ * Only media with a `path` reach this check, so `url`/`data`-only media are
+ * never flagged.
  */
 function assertPathsPresent(
   kind: "image" | "sound",

@@ -108,7 +108,7 @@ describe("extractOBZ", () => {
     expect(result.rootBoard).toBe(result.boards.get("b"));
   });
 
-  test("throws when a board's id does not match its manifest key", async () => {
+  test("throws when a board's ID does not match its manifest key", async () => {
     const manifest = JSON.stringify({
       format: "open-board-0.1",
       root: "boards/home.obf",
@@ -195,8 +195,8 @@ describe("extractOBZ", () => {
   });
 });
 
-// A one-line wrapper over extractOBZ: all it can get wrong is the File read or
-// dropping `options`, so both are asserted here and the rest is extractOBZ's.
+// This one-line wrapper can only drop `file` or `options`. Assert both here and
+// leave extraction behavior to `extractOBZ`.
 describe("loadOBZ", () => {
   test("reads a File and forwards limits to extraction", async () => {
     const obzBlob = await createOBZ([makeBoard({ id: "test" })], "test");
@@ -236,7 +236,7 @@ describe("createOBZ", () => {
     ).toMatchObject({ code: "unknown-root", rootBoardId: "wrong-id" });
   });
 
-  test("throws when two boards share the same id", async () => {
+  test("throws when two boards share the same ID", async () => {
     expect(
       await expectOBFErrorAsync(
         createOBZ([makeBoard({ id: "dup" }), makeBoard({ id: "dup" })], "dup"),
@@ -245,7 +245,7 @@ describe("createOBZ", () => {
   });
 
   test.each(["../evil", "a/b", "a\\b"])(
-    "percent-encodes path-like board ids into a safe filename (%s)",
+    "percent-encodes path-like board IDs into a safe filename (%s)",
     async (id) => {
       const blob = await createOBZ([makeBoard({ id })], id);
       const extracted = await extractOBZ(await blob.arrayBuffer());
@@ -261,7 +261,7 @@ describe("createOBZ", () => {
       format: "open-board-0.1",
       id: "bad",
       buttons: [],
-      // grid is required by OBFBoardSchema
+      // `grid` is required by `OBFBoardSchema`.
     } as unknown as OBFBoard;
 
     expect(
@@ -358,7 +358,7 @@ describe("createOBZ", () => {
     expect(extracted.manifest.paths.images).toEqual({});
   });
 
-  test("includes path-bearing media but skips url/data-only entries", async () => {
+  test("includes path-bearing media but skips `url`/`data`-only entries", async () => {
     const board = makeBoard({
       buttons: [{ id: "btn", image_id: "kept" }],
       grid: { rows: 1, columns: 1, order: [["btn"]] },
@@ -374,13 +374,13 @@ describe("createOBZ", () => {
       await (await createOBZ([board], "b", resources)).arrayBuffer(),
     );
 
-    // Only the path-bearing entry survives; url/data-only media are skipped.
+    // Only the path-bearing entry survives; `url`/`data`-only media are skipped.
     expect(extracted.manifest.paths.images).toStrictEqual({
       kept: "images/kept.png",
     });
   });
 
-  test("throws when two boards declare the same image id with conflicting paths", async () => {
+  test("throws when two boards declare the same image ID with conflicting paths", async () => {
     const board1 = makeBoard({
       id: "b1",
       images: [{ id: "shared", path: "images/a.png" }],
@@ -400,7 +400,7 @@ describe("createOBZ", () => {
     });
   });
 
-  test("throws when two boards declare the same sound id with conflicting paths", async () => {
+  test("throws when two boards declare the same sound ID with conflicting paths", async () => {
     const board1 = makeBoard({
       id: "b1",
       sounds: [{ id: "shared", path: "sounds/a.mp3" }],
@@ -453,7 +453,7 @@ describe("Integration: createOBZ and extractOBZ", () => {
 describe("Integration: Real-world OBZ package", () => {
   const FIXTURE = "lots-of-stuff.obz";
 
-  test("resolves all five boards keyed by manifest id, including id-mismatched filenames", async () => {
+  test("resolves all five boards keyed by manifest ID, including ID-mismatched filenames", async () => {
     const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
 
     expect(boards.size).toBe(5);
@@ -489,7 +489,7 @@ describe("Integration: Real-world OBZ package", () => {
       "9": "images/happy.png",
       "11": "images/sad.png",
     });
-    // Two distinct sound ids legitimately map to the same file.
+    // Two distinct sound IDs legitimately map to the same file.
     expect(manifest.paths.sounds).toEqual({
       sl3: "sounds/sigh.mp3",
       ss2: "sounds/sigh.mp3",
@@ -504,7 +504,7 @@ describe("Integration: Real-world OBZ package", () => {
 
     const happy = resources.get("images/happy.png");
     expect(happy?.byteLength).toBe(30987);
-    // PNG magic number — proves the bytes are the real decompressed image.
+    // The PNG signature confirms these are the decompressed image bytes.
     expect(Array.from(happy?.slice(0, 4) ?? [])).toEqual([
       0x89, 0x50, 0x4e, 0x47,
     ]);
@@ -536,7 +536,7 @@ describe("Integration: Real-world OBZ package", () => {
     expect(remote?.path).toBeUndefined();
   });
 
-  test("preserves mixed media reference styles and coerces numeric ids", async () => {
+  test("preserves mixed media reference styles and coerces numeric IDs", async () => {
     const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
 
     const linkedImages = boards.get("link")?.images ?? [];
@@ -549,7 +549,7 @@ describe("Integration: Real-world OBZ package", () => {
       filename: "hat.ico",
     });
 
-    // Numeric image ids in inline_images.obf are coerced to strings.
+    // Numeric image IDs in `inline_images.obf` are coerced to strings.
     const inlineImageIds = boards
       .get("inline_images")
       ?.images?.map((image) => image.id);
