@@ -3,46 +3,44 @@
 [![npm version](https://img.shields.io/npm/v/@shayc/open-board-format)](https://www.npmjs.com/package/@shayc/open-board-format)
 [![CI](https://github.com/shayc/open-board-format/actions/workflows/ci.yml/badge.svg)](https://github.com/shayc/open-board-format/actions/workflows/ci.yml)
 
-A TypeScript/JavaScript library for parsing, validating, and creating [Open Board Format](https://www.openboardformat.org/) (OBF) communication boards (`.obf`) and archives (`.obz`) for AAC applications.
+A TypeScript library for parsing, validating, and creating [Open Board Format](https://www.openboardformat.org/) communication boards for AAC applications.
 
-Add Open Board Format import and export without implementing schemas, manifests, or archive handling yourself.
+Add Open Board Format support without implementing schemas or archive handling yourself.
 
 ## Features
 
-- Load OBF or OBZ through one byte-based format detection API.
+- Load OBF or OBZ files through a single API.
 - Create OBZ archives with generated manifests and validated media resources.
 - Use exported [Zod](https://zod.dev/) schemas and inferred TypeScript types.
 - Preserve unknown fields, including vendor extensions.
 
-It focuses on board data and archives only. It does not render boards, play media, fetch remote resources, or resolve navigation and media references.
-
 ## Install
 
 ```bash
-npm install @shayc/open-board-format zod
+npm install @shayc/open-board-format
 ```
 
-`zod ^4.0.0` is a required peer dependency.
+Requires `zod ^4.0.0` as a peer dependency.
 
-Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` values use the same loading API. Pure ESM; CommonJS is not supported.
+Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` values use the same loading API.
 
 ## Quick start
 
 ```ts
 import { loadBoard } from "@shayc/open-board-format";
 
-const loaded = await loadBoard(input);
+const result = await loadBoard(input);
 ```
 
 `loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. It returns a TypeScript discriminated union: OBF files contain a board directly, while OBZ files contain an archive whose `rootBoard` is the entry point.
 
 ```ts
-const board = loaded.format === "obf" ? loaded.board : loaded.archive.rootBoard;
+const board = result.format === "obf" ? result.board : result.archive.rootBoard;
 ```
 
 ## Formats
 
-- **OBF (`.obf`)** is one JSON communication board.
+- **OBF (`.obf`)** is a single JSON communication board.
 - **OBZ (`.obz`)** is a ZIP archive containing one or more boards and optional media.
 
 ```text
@@ -57,15 +55,6 @@ my-board.obz
 ```
 
 Every OBZ archive requires `manifest.json` at its root, even when it contains only one board.
-
-### Which function should I call?
-
-- Unknown file: `loadBoard(input)`
-- Known `.obf` file: `loadOBF(file)`
-- Known `.obz` input: `extractOBZ(input)`
-- Creating an archive: `createOBZ(...)`
-
-See the [API reference](#api-reference) for the complete function list. Here, `File` means the Web Platform object, not a filesystem path.
 
 ## Examples
 
@@ -84,18 +73,18 @@ The returned `ParsedOBZ` contains:
 - `boards`: a `Map` keyed by board ID.
 - `resources`: a `Map` containing the raw bytes of every file entry.
 
-`resources` includes the manifest, board files, media, and unrelated extra files. Directory-marker entries are omitted.
+`resources` includes the manifest, board files, media, and any other files in the archive.
 
 For untrusted archives, configure [extraction limits](#extraction-limits).
 
 ### Create an OBZ archive
 
-Given an existing board and its media resources:
+Given a board and its media resources:
 
 ```ts
 import { createOBZ } from "@shayc/open-board-format";
 
-const blob = await createOBZ([existingBoard], existingBoard.id, resources);
+const obz = await createOBZ([board], board.id, resources);
 ```
 
 `createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry board.
