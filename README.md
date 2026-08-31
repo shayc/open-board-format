@@ -22,7 +22,7 @@ It focuses on board data and archives only. It does not render boards, play medi
 npm install @shayc/open-board-format zod
 ```
 
-`zod ^4.4.3` is a required peer dependency.
+`zod ^4.0.0` is a required peer dependency.
 
 Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` values use the same loading API. Pure ESM; CommonJS is not supported.
 
@@ -293,7 +293,7 @@ Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rathe
 
 - Pure ESM for Node.js `>=22` and modern browsers; CommonJS is unsupported.
 - Browser environments must provide `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
-- `fflate` is the only runtime dependency; `zod ^4.4.3` is a peer dependency.
+- `fflate` is the only runtime dependency; `zod ^4.0.0` is a peer dependency.
 - CI covers Node.js 22, 24, and 26. Browser engines are not currently tested in CI.
 
 ## Project
