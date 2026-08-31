@@ -1,20 +1,21 @@
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [],
-  "categories": {
-    "correctness": "off"
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  plugins: [],
+  categories: {
+    correctness: "off",
   },
-  "options": {
-    "typeAware": true
+  options: {
+    typeAware: true,
   },
-  "env": {
-    "builtin": true
+  env: {
+    builtin: true,
   },
-  "ignorePatterns": ["dist", "coverage"],
-  "overrides": [
+  ignorePatterns: ["dist", "coverage"],
+  overrides: [
     {
-      "files": ["**/*.ts"],
-      "rules": {
+      files: ["**/*.ts"],
+      rules: {
         "constructor-super": "off",
         "for-direction": "error",
         "getter-return": "off",
@@ -148,13 +149,13 @@
         "typescript/prefer-optional-chain": "error",
         "typescript/prefer-regexp-exec": "error",
         "typescript/prefer-string-starts-ends-with": "error",
-        "curly": ["error"]
+        curly: ["error"],
       },
-      "plugins": ["typescript"],
-      "env": {
-        "es2026": true,
-        "node": true
-      }
-    }
-  ]
-}
+      plugins: ["typescript"],
+      env: {
+        es2026: true,
+        node: true,
+      },
+    },
+  ],
+});
