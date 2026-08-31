@@ -13,17 +13,10 @@
     "url": "https://github.com/shayc/open-board-format/issues"
   },
   "keywords": [
-    "aac",
-    "aac-board",
     "assistive-technology",
     "augmentative-alternative-communication",
     "communication-board",
-    "obf",
-    "obz",
-    "open-board-format",
-    "parser",
-    "validator",
-    "zod"
+    "open-board-format"
   ],
   "type": "module",
   "sideEffects": false,
