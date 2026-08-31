@@ -1,5 +1,11 @@
 # @shayc/open-board-format
 
+## 1.3.5
+
+### Patch Changes
+
+- cac6729: Polish public documentation and JSDoc for consistent terminology, clearer API boundaries, and faster scanning.
+
 ## 1.3.4
 
 ### Patch Changes
