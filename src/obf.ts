@@ -42,8 +42,7 @@ export function parseOBF(json: string): OBFBoard {
 /**
  * Read a `File` and parse its contents as a validated OBF board.
  *
- * This relies on the browser `File` API; for Node environments,
- * read the file to a string and pass it to {@link parseOBF} instead.
+ * For a `Blob`, `ArrayBuffer`, or typed-array input, use `loadBoard` instead.
  *
  * @param file - A `File` handle pointing to an `.obf` file.
  * @returns The validated board object.

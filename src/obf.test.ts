@@ -7,7 +7,7 @@ const validBoard = makeBoard({
   id: "test-board",
   buttons: [{ id: "btn-1", label: "Hello" }],
   grid: { rows: 1, columns: 1, order: [["btn-1"]] },
-  // ext_ keys are spec-blessed extension fields and must survive round-trip.
+  // Keys prefixed with `ext_` are spec-defined extensions and must round-trip.
   ext_speaker_color: "blue",
 });
 

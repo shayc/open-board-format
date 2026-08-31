@@ -34,6 +34,8 @@ const result = await loadBoard(input);
 
 `loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. It returns a TypeScript discriminated union: OBF files contain a board directly, while OBZ files contain an archive whose `rootBoard` is the entry point.
 
+`File` refers to the Web API object, not a filesystem path.
+
 ```ts
 const board = result.format === "obf" ? result.board : result.archive.rootBoard;
 ```
@@ -87,7 +89,7 @@ import { createOBZ } from "@shayc/open-board-format";
 const obz = await createOBZ([board], board.id, resources);
 ```
 
-`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry board.
+`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board.
 
 ### Validate a board
 
@@ -181,7 +183,7 @@ Main exports include:
 
 ### Errors
 
-Expected parsing, validation, and archive-domain failures from the high-level APIs use `OBFError`.
+High-level APIs report expected parsing, validation, and archive failures as `OBFError`.
 
 Branch on `error.info.code`, not `error.message`.
 

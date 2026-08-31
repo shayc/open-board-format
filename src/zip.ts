@@ -10,8 +10,8 @@ import { OBFError } from "./errors";
  * First two bytes of every ZIP archive — the ASCII letters `PK`,
  * after Phil Katz, creator of the format.
  *
- * Only the 2-byte prefix is checked intentionally: this keeps the
- * test lightweight and sufficient for distinguishing ZIP from JSON.
+ * Only the 2-byte prefix is checked intentionally: this keeps detection
+ * lightweight and is sufficient for distinguishing ZIP from JSON.
  */
 const ZIP_MAGIC = [0x50, 0x4b] as const;
 
@@ -48,10 +48,9 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
 }
 
 /**
- * Optional caps on declared uncompressed sizes, checked per entry against the
- * archive's ZIP metadata before that entry is inflated. Entries accepted
- * before a later entry trips a limit have already been inflated, but total
- * allocation stays bounded by the caps.
+ * Optional caps on declared uncompressed sizes, checked against ZIP metadata
+ * before each entry is inflated. These limits reduce allocation risk but are
+ * not strict memory guarantees because archive metadata can be dishonest.
  */
 export interface UnzipLimits {
   /** Max declared uncompressed size of any single entry, in bytes. */
@@ -113,7 +112,7 @@ export function unzip(
 
     const filter = (file: UnzipFileInfo): boolean => {
       if (limitError) {
-        return false; // limit tripped: skip the rest cheaply
+        return false; // Skip the remaining entries cheaply.
       }
 
       entryCount += 1;
@@ -186,9 +185,10 @@ export function unzip(
 
     if (limitError) {
       const error = limitError;
-      // Deliberate: this can pre-empt an in-flight entry's own corruption error, surfacing archive-too-large instead of unreadable-zip.
-      terminate(); // kill any dispatched async inflate workers
-      // Deferred so an archive error fflate queued during its sync pass settles first.
+      // This deliberately lets archive-too-large pre-empt an in-flight entry's
+      // corruption error.
+      terminate(); // Stop any dispatched asynchronous inflate workers.
+      // Defer so an archive error from fflate's synchronous pass settles first.
       queueMicrotask(() => {
         if (!settled) {
           settled = true;

@@ -212,7 +212,8 @@ describe("unzip limits", () => {
   });
 
   test("rejects promptly when a limit trips after a large entry started inflating asynchronously", async () => {
-    // 600,000 zeros: over fflate's 512 KB sync-inflate threshold, so an async worker is dispatched.
+    // This exceeds fflate's 512 KB synchronous-inflate threshold and starts an
+    // asynchronous worker.
     const zipped = await zip(filesOf(600_000, 100));
     const info = await expectOBFErrorAsync(
       unzip(bytesToArrayBuffer(zipped), {
@@ -253,7 +254,8 @@ describe("unzip limits", () => {
   );
 
   test("rejects with unreadable-zip, not archive-too-large, when a synchronously-inflated corrupt entry precedes a limit trip", async () => {
-    // Both entries stay under fflate's 512 KB sync-inflate threshold; see the terminate() comment in unzip() for the async case this doesn't cover.
+    // Both entries stay below fflate's 512 KB synchronous-inflate threshold.
+    // The `terminate()` comment in `unzip()` covers the asynchronous case.
     const zipped = await zip(filesOf(1_000, 200_000));
     const buffer = bytesToArrayBuffer(zipped);
     const bytes = new Uint8Array(buffer);
@@ -263,7 +265,7 @@ describe("unzip limits", () => {
     const dataStart = 30 + view.getUint16(26, true) + view.getUint16(28, true);
     bytes.fill(0xff, dataStart + 2, dataStart + 10);
 
-    // Sanity control: without limits, the corruption alone causes unreadable-zip.
+    // Control: without limits, the corruption alone causes `unreadable-zip`.
     expect((await expectOBFErrorAsync(unzip(buffer))).code).toBe(
       "unreadable-zip",
     );

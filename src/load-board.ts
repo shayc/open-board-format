@@ -18,7 +18,7 @@ import { isZip, toArrayBuffer } from "./zip";
  * ```ts
  * const loaded = await loadBoard(file);
  * if (loaded.format === "obz") {
- *   loaded.archive.rootBoard; // home board of the ParsedOBZ archive
+ *   loaded.archive.rootBoard; // entry-point board of the ParsedOBZ archive
  * } else {
  *   loaded.board;             // OBFBoard
  * }
