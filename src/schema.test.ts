@@ -16,7 +16,7 @@ import {
 import { readFixtureText } from "./test-utils";
 
 const lotsOfStuffExample: unknown = JSON.parse(
-  readFixtureText("lots-of-stuff.obf"),
+  await readFixtureText("lots-of-stuff.obf"),
 );
 
 describe("OBFIDSchema", () => {

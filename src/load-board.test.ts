@@ -94,7 +94,9 @@ describe("loadBoard", () => {
   });
 
   test("loads the real-world lots-of-stuff.obz package end to end", async () => {
-    const loaded = await loadBoard(readFixtureArrayBuffer("lots-of-stuff.obz"));
+    const loaded = await loadBoard(
+      await readFixtureArrayBuffer("lots-of-stuff.obz"),
+    );
 
     expect(loaded.format).toBe("obz");
     if (loaded.format !== "obz") {

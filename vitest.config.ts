@@ -1,3 +1,4 @@
+import { playwright } from "@vitest/browser-playwright";
 import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -14,5 +15,28 @@ export default defineConfig({
         lines: 95,
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: { name: "node", environment: "node" },
+      },
+      {
+        extends: true,
+        test: {
+          name: "browser",
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            screenshotFailures: false,
+            instances: [
+              { browser: "chromium" },
+              { browser: "firefox" },
+              { browser: "webkit" },
+            ],
+          },
+        },
+      },
+    ],
   },
 });

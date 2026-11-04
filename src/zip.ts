@@ -237,14 +237,17 @@ export function zip(
 }
 
 /**
- * Test whether an `ArrayBuffer` begins with the two-byte ZIP magic
- * prefix (`PK`).
+ * Test whether a buffer begins with the two-byte ZIP magic prefix (`PK`).
  *
- * @param archive - The buffer to inspect.
- * @returns `true` if the buffer starts with the ZIP signature.
+ * @param archive - The bytes to inspect: an `ArrayBuffer` or any
+ *   `ArrayBufferView` (e.g. a `Uint8Array` or Node `Buffer`). A view is read
+ *   from its own `byteOffset`, not the start of its underlying buffer.
+ * @returns `true` if the bytes start with the ZIP signature.
  */
-export function isZip(archive: ArrayBuffer): boolean {
-  const bytes = new Uint8Array(archive);
+export function isZip(archive: ArrayBuffer | ArrayBufferView): boolean {
+  const bytes = ArrayBuffer.isView(archive)
+    ? new Uint8Array(archive.buffer, archive.byteOffset, archive.byteLength)
+    : new Uint8Array(archive);
 
   return (
     bytes.length >= ZIP_MAGIC.length &&

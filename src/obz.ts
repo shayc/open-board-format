@@ -152,10 +152,14 @@ export function parseManifest(json: string): OBFManifest {
  * @throws {@link OBFError} `"zip-failed"` if archive compression fails.
  */
 export async function createOBZ(
-  boards: OBFBoard[],
+  inputBoards: OBFBoard[],
   rootBoardId: string,
   resources?: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Blob> {
+  // Validate first, so every later step sees normalized boards (e.g. numeric
+  // IDs already coerced to strings) and reports errors against them.
+  const boards = inputBoards.map(validateBoardForPackaging);
+
   if (!boards.some((board) => board.id === rootBoardId)) {
     throw new OBFError({ code: "unknown-root", rootBoardId });
   }
@@ -169,7 +173,7 @@ export async function createOBZ(
 
     // A lone surrogate cannot be percent-encoded into an archive path, and
     // `encodeURIComponent` would throw a bare `URIError`.
-    if (typeof board.id === "string" && !board.id.isWellFormed()) {
+    if (!board.id.isWellFormed()) {
       throw new OBFError({
         code: "invalid-board",
         boardId: board.id,
@@ -223,21 +227,9 @@ export async function createOBZ(
   );
 
   for (const board of boards) {
-    const result = OBFBoardSchema.safeParse(board);
-    if (!result.success) {
-      throw new OBFError(
-        {
-          code: "invalid-board",
-          boardId: board.id,
-          issues: result.error.issues,
-        },
-        { cause: result.error },
-      );
-    }
-
     entries.set(
       boardPaths[board.id]!,
-      encoder.encode(JSON.stringify(result.data, null, 2)),
+      encoder.encode(JSON.stringify(board, null, 2)),
     );
   }
 
@@ -260,6 +252,33 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Validate a board passed to {@link createOBZ}, reporting its `id` when the
+ * raw input has a usable one.
+ */
+function validateBoardForPackaging(board: OBFBoard): OBFBoard {
+  const result = OBFBoardSchema.safeParse(board);
+
+  if (!result.success) {
+    const rawId: unknown = board.id;
+    const boardId =
+      typeof rawId === "string" || typeof rawId === "number"
+        ? String(rawId)
+        : undefined;
+
+    throw new OBFError(
+      {
+        code: "invalid-board",
+        ...(boardId !== undefined && { boardId }),
+        issues: result.error.issues,
+      },
+      { cause: result.error },
+    );
+  }
+
+  return result.data;
+}
 
 /**
  * Derive a board's archive path from its ID.
