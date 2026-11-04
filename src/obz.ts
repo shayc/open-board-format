@@ -152,20 +152,20 @@ export function parseManifest(json: string): OBFManifest {
  * @throws {@link OBFError} `"zip-failed"` if archive compression fails.
  */
 export async function createOBZ(
-  inputBoards: OBFBoard[],
+  boards: OBFBoard[],
   rootBoardId: string,
   resources?: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Blob> {
   // Validate first, so every later step sees normalized boards (e.g. numeric
   // IDs already coerced to strings) and reports errors against them.
-  const boards = inputBoards.map(validateBoardForPackaging);
+  const validBoards = boards.map(validateBoardForPackaging);
 
-  if (!boards.some((board) => board.id === rootBoardId)) {
+  if (!validBoards.some((board) => board.id === rootBoardId)) {
     throw new OBFError({ code: "unknown-root", rootBoardId });
   }
 
   const seenBoardIds = new Set<string>();
-  for (const board of boards) {
+  for (const board of validBoards) {
     if (seenBoardIds.has(board.id)) {
       throw new OBFError({ code: "duplicate-board", boardId: board.id });
     }
@@ -192,11 +192,11 @@ export async function createOBZ(
   const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
   const boardPaths = Object.fromEntries(
-    boards.map((board) => [board.id, boardPath(board.id)]),
+    validBoards.map((board) => [board.id, boardPath(board.id)]),
   );
 
-  const imagePaths = collectMediaPaths(boards, "images");
-  const soundPaths = collectMediaPaths(boards, "sounds");
+  const imagePaths = collectMediaPaths(validBoards, "images");
+  const soundPaths = collectMediaPaths(validBoards, "sounds");
 
   const manifestResult = OBFManifestSchema.safeParse({
     format: "open-board-0.1",
@@ -226,7 +226,7 @@ export async function createOBZ(
     encoder.encode(JSON.stringify(manifest, null, 2)),
   );
 
-  for (const board of boards) {
+  for (const board of validBoards) {
     entries.set(
       boardPaths[board.id]!,
       encoder.encode(JSON.stringify(board, null, 2)),
