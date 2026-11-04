@@ -45,6 +45,18 @@ describe("isZip", () => {
 
     expect(isZip(pkFollowedByJunk)).toBe(true);
   });
+
+  test("accepts a Uint8Array view directly", () => {
+    expect(isZip(new Uint8Array([0x50, 0x4b, 0x03, 0x04]))).toBe(true);
+    expect(isZip(new Uint8Array([0x7b, 0x7d]))).toBe(false);
+  });
+
+  test("reads a view from its own byteOffset, not the buffer start", () => {
+    const backing = new Uint8Array([0x00, 0x00, 0x50, 0x4b]);
+
+    expect(isZip(backing.subarray(2))).toBe(true);
+    expect(isZip(new DataView(backing.buffer, 0, 2))).toBe(false);
+  });
 });
 
 describe("zip", () => {
