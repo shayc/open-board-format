@@ -9,7 +9,7 @@ import { OBFBoardSchema } from "./schema";
 const UTF8_BOM = "\uFEFF";
 
 /** Strip a leading UTF-8 BOM, which some editors silently prepend. */
-function stripBom(text: string): string {
+export function stripBom(text: string): string {
   return text.startsWith(UTF8_BOM) ? text.slice(1) : text;
 }
 

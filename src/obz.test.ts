@@ -22,6 +22,16 @@ describe("parseManifest", () => {
     expect(manifest.root).toBe("boards/test.obf");
     expect(manifest.paths.boards.test).toBe("boards/test.obf");
   });
+
+  test("handles UTF-8 BOM prefix", () => {
+    const json = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/test.obf",
+      paths: { boards: { test: "boards/test.obf" } },
+    });
+
+    expect(parseManifest("\uFEFF" + json).root).toBe("boards/test.obf");
+  });
 });
 
 describe("extractOBZ", () => {
