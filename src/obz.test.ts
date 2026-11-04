@@ -22,6 +22,16 @@ describe("parseManifest", () => {
     expect(manifest.root).toBe("boards/test.obf");
     expect(manifest.paths.boards.test).toBe("boards/test.obf");
   });
+
+  test("handles UTF-8 BOM prefix", () => {
+    const json = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/test.obf",
+      paths: { boards: { test: "boards/test.obf" } },
+    });
+
+    expect(parseManifest("\uFEFF" + json).root).toBe("boards/test.obf");
+  });
 });
 
 describe("extractOBZ", () => {
@@ -255,6 +265,18 @@ describe("createOBZ", () => {
       expect(extracted.rootBoard.id).toBe(id);
     },
   );
+
+  test("rejects a board id containing a lone surrogate", async () => {
+    const id = "bad\uD800";
+
+    expect(
+      await expectOBFErrorAsync(createOBZ([makeBoard({ id })], id)),
+    ).toMatchObject({
+      code: "invalid-board",
+      boardId: id,
+      issues: [{ code: "custom", path: ["id"] }],
+    });
+  });
 
   test("throws when a supplied board fails schema validation", async () => {
     const invalidBoard = {
