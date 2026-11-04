@@ -3,7 +3,7 @@
  */
 
 import { OBFError } from "./errors";
-import { parseOBF } from "./obf";
+import { parseOBF, stripBom } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import type { BinaryInput, UnzipOptions } from "./zip";
@@ -94,6 +94,8 @@ export async function extractOBZ(
  * @param json - A JSON string representing the manifest.
  * @returns The validated manifest object.
  *
+ * Strips an optional UTF-8 BOM prefix before parsing, like {@link parseOBF}.
+ *
  * @throws {@link OBFError} with `info.code` `"not-json"` if the JSON is
  *   malformed, or `"invalid-manifest"` if it fails schema validation.
  */
@@ -101,7 +103,7 @@ export function parseManifest(json: string): OBFManifest {
   let data: unknown;
 
   try {
-    data = JSON.parse(json) as unknown;
+    data = JSON.parse(stripBom(json)) as unknown;
   } catch (error) {
     throw new OBFError(
       { code: "not-json", source: "manifest" },
