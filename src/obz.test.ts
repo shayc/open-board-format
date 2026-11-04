@@ -454,7 +454,7 @@ describe("Integration: Real-world OBZ package", () => {
   const FIXTURE = "lots-of-stuff.obz";
 
   test("resolves all five boards keyed by manifest ID, including ID-mismatched filenames", async () => {
-    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const { boards } = await extractOBZ(await readFixtureArrayBuffer(FIXTURE));
 
     expect(boards.size).toBe(5);
     expect(boards.get("lots_of_stuff")?.name).toBe("Lots of Stuff Board"); // root_board.obf
@@ -466,7 +466,7 @@ describe("Integration: Real-world OBZ package", () => {
 
   test("resolves the root board declared by the foreign manifest", async () => {
     const { rootBoard, boards, manifest } = await extractOBZ(
-      readFixtureArrayBuffer(FIXTURE),
+      await readFixtureArrayBuffer(FIXTURE),
     );
 
     expect(manifest.root).toBe("boards/root_board.obf");
@@ -475,7 +475,9 @@ describe("Integration: Real-world OBZ package", () => {
   });
 
   test("parses the foreign manifest's path tables faithfully", async () => {
-    const { manifest } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const { manifest } = await extractOBZ(
+      await readFixtureArrayBuffer(FIXTURE),
+    );
 
     expect(manifest.format).toBe("open-board-0.1");
     expect(manifest.paths.boards).toEqual({
@@ -497,7 +499,9 @@ describe("Integration: Real-world OBZ package", () => {
   });
 
   test("preserves binary media resources as raw bytes", async () => {
-    const { resources } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const { resources } = await extractOBZ(
+      await readFixtureArrayBuffer(FIXTURE),
+    );
 
     expect(resources.has("manifest.json")).toBe(true);
     expect(resources.has("boards/root_board.obf")).toBe(true);
@@ -514,7 +518,7 @@ describe("Integration: Real-world OBZ package", () => {
   });
 
   test("preserves load_board navigation links (path-based and remote)", async () => {
-    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const { boards } = await extractOBZ(await readFixtureArrayBuffer(FIXTURE));
     const root = boards.get("lots_of_stuff");
 
     const pathLinks = (root?.buttons ?? [])
@@ -537,7 +541,7 @@ describe("Integration: Real-world OBZ package", () => {
   });
 
   test("preserves mixed media reference styles and coerces numeric IDs", async () => {
-    const { boards } = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const { boards } = await extractOBZ(await readFixtureArrayBuffer(FIXTURE));
 
     const linkedImages = boards.get("link")?.images ?? [];
     expect(linkedImages.find((image) => image.id === "i9")?.data).toMatch(

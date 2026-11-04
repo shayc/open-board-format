@@ -16,9 +16,12 @@ Common commands:
 npm run lint        # oxlint
 npm run format      # oxfmt
 npm run typecheck   # type-check only (noEmit via tsconfig)
-npm test            # vitest run
+npm test            # vitest in Node
+npm run test:browser # vitest in Chromium, Firefox, and WebKit
 npm run build       # tsdown → dist/
 ```
+
+Before the first `npm run test:browser`, install the browsers once with `npx playwright install chromium firefox webkit`.
 
 ## Pull requests
 

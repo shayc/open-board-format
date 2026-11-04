@@ -285,7 +285,7 @@ Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rathe
 - Pure ESM for Node.js `>=22` and modern browsers; CommonJS is unsupported.
 - Browser environments must provide `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
 - `fflate` is the only runtime dependency; `zod ^4.0.0` is a peer dependency.
-- CI covers Node.js 22, 24, and 26. Browser engines are not currently tested in CI.
+- CI covers Node.js 22, 24, and 26, plus Chromium, Firefox, and WebKit through Playwright.
 
 ## Project
 

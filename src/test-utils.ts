@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { expect } from "vitest";
 import type { OBFErrorInfo } from "./errors";
 import { OBFError } from "./errors";
@@ -15,23 +14,36 @@ export const makeBoard = (overrides: Partial<OBFBoard> = {}): OBFBoard => ({
   ...overrides,
 });
 
-/** Read a file from `tests/examples/` as UTF-8 text. */
-export function readFixtureText(name: string): string {
-  return readFileSync(new URL(name, EXAMPLES_DIR), "utf8");
+/**
+ * Read a file from `tests/examples/` as bytes, in Node or in a Vitest browser
+ * run (where `node:fs` is unavailable and the test server reads it instead).
+ *
+ * Returns a freshly sized copy rather than a view onto Node's shared read
+ * pool, so callers (e.g. `isZip`'s magic-byte check) see the bytes at offset 0.
+ */
+async function readFixtureBytes(name: string): Promise<Uint8Array> {
+  if ("document" in globalThis) {
+    const { commands } = await import("vitest/browser");
+    const base64 = await commands.readFile(`tests/examples/${name}`, {
+      encoding: "base64",
+    });
+    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  return new Uint8Array(await readFile(new URL(name, EXAMPLES_DIR)));
 }
 
-/**
- * Read a file from `tests/examples/` as a standalone `ArrayBuffer`.
- *
- * Copies into a freshly sized buffer rather than handing back a view onto
- * Node's shared read pool, so callers (e.g. `isZip`'s magic-byte check) see
- * the bytes at offset 0.
- */
-export function readFixtureArrayBuffer(name: string): ArrayBuffer {
-  const bytes = readFileSync(new URL(name, EXAMPLES_DIR));
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return copy.buffer;
+/** Read a file from `tests/examples/` as UTF-8 text. */
+export async function readFixtureText(name: string): Promise<string> {
+  return new TextDecoder().decode(await readFixtureBytes(name));
+}
+
+/** Read a file from `tests/examples/` as a standalone `ArrayBuffer`. */
+export async function readFixtureArrayBuffer(
+  name: string,
+): Promise<ArrayBuffer> {
+  return (await readFixtureBytes(name)).buffer as ArrayBuffer;
 }
 
 /**
