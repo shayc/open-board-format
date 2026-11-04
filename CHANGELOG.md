@@ -1,5 +1,16 @@
 # @shayc/open-board-format
 
+## 1.4.0
+
+### Minor Changes
+
+- d2e545f: `isZip` now accepts any `ArrayBufferView` (such as a `Uint8Array` or Node `Buffer`) as well as an `ArrayBuffer`, reading a view from its own `byteOffset`.
+
+### Patch Changes
+
+- b7fdaee: `createOBZ` now validates and normalizes every board before anything else. Boards with numeric IDs now package correctly when `rootBoardId` is the string form, instead of failing with `unknown-root`, and an invalid board reports `invalid-board` before any root or duplicate checks.
+- 9fd50b5: `parseManifest` now strips a leading UTF-8 BOM from its input string, matching `parseOBF`. `extractOBZ` and `loadBoard` were not affected, because they decode archive bytes with `TextDecoder`, which already drops a BOM.
+
 ## 1.3.5
 
 ### Patch Changes
