@@ -139,7 +139,8 @@ export function parseManifest(json: string): OBFManifest {
  * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share
  *   the same ID.
  * @throws {@link OBFError} `"invalid-board"` if a supplied board fails schema
- *   validation.
+ *   validation, or its `id` contains a lone surrogate and cannot become an
+ *   archive path.
  * @throws {@link OBFError} `"conflicting-paths"` if two boards map the same
  *   media ID to different paths.
  * @throws {@link OBFError} `"missing-resource"` if a board declares an image
@@ -163,6 +164,23 @@ export async function createOBZ(
       throw new OBFError({ code: "duplicate-board", boardId: board.id });
     }
     seenBoardIds.add(board.id);
+
+    // A lone surrogate cannot be percent-encoded into an archive path, and
+    // `encodeURIComponent` would throw a bare `URIError`.
+    if (typeof board.id === "string" && !board.id.isWellFormed()) {
+      throw new OBFError({
+        code: "invalid-board",
+        boardId: board.id,
+        issues: [
+          {
+            code: "custom",
+            path: ["id"],
+            message: "Board id must be a well-formed Unicode string",
+            input: board.id,
+          },
+        ],
+      });
+    }
   }
 
   const entries = new Map<string, Uint8Array | ArrayBuffer>();

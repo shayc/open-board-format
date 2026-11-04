@@ -256,6 +256,18 @@ describe("createOBZ", () => {
     },
   );
 
+  test("rejects a board id containing a lone surrogate", async () => {
+    const id = "bad\uD800";
+
+    expect(
+      await expectOBFErrorAsync(createOBZ([makeBoard({ id })], id)),
+    ).toMatchObject({
+      code: "invalid-board",
+      boardId: id,
+      issues: [{ code: "custom", path: ["id"] }],
+    });
+  });
+
   test("throws when a supplied board fails schema validation", async () => {
     const invalidBoard = {
       format: "open-board-0.1",
