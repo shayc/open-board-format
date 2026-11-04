@@ -256,6 +256,34 @@ describe("createOBZ", () => {
     },
   );
 
+  test("normalizes boards before resolving the root (numeric id, string root)", async () => {
+    const board = { ...makeBoard(), id: 5 } as unknown as OBFBoard;
+
+    const extracted = await extractOBZ(
+      await (await createOBZ([board], "5")).arrayBuffer(),
+    );
+
+    expect(extracted.rootBoard.id).toBe("5");
+    expect(extracted.manifest.paths.boards).toEqual({ "5": "boards/5.obf" });
+  });
+
+  test("reports invalid-board before unknown-root for an invalid board", async () => {
+    const invalidBoard = { id: "bad" } as unknown as OBFBoard;
+
+    expect(
+      await expectOBFErrorAsync(createOBZ([invalidBoard], "other")),
+    ).toMatchObject({ code: "invalid-board", boardId: "bad" });
+  });
+
+  test("omits boardId when an invalid board has no usable id", async () => {
+    const info = await expectOBFErrorAsync(
+      createOBZ([{} as unknown as OBFBoard], "x"),
+    );
+
+    expect(info.code).toBe("invalid-board");
+    expect(info).not.toHaveProperty("boardId");
+  });
+
   test("throws when a supplied board fails schema validation", async () => {
     const invalidBoard = {
       format: "open-board-0.1",
