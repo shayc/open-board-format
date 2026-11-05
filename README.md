@@ -5,8 +5,6 @@
 
 A TypeScript library for parsing, validating, and creating [Open Board Format](https://www.openboardformat.org/) communication boards for AAC applications.
 
-Add Open Board Format support without implementing schemas or archive handling yourself.
-
 ## Features
 
 - Load OBF or OBZ files through a single API.
@@ -74,8 +72,6 @@ The returned `ParsedOBZ` contains:
 - `rootBoard`: the board referenced by `manifest.root`.
 - `boards`: a `Map` keyed by board ID.
 - `resources`: a `Map` containing the raw bytes of every file entry.
-
-`resources` includes the manifest, board files, media, and any other files in the archive.
 
 For untrusted archives, configure [extraction limits](#extraction-limits).
 
@@ -284,7 +280,7 @@ Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rathe
 
 - Pure ESM for Node.js `>=22` and modern browsers; CommonJS is unsupported.
 - Browser environments must provide `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
-- `fflate` is the only runtime dependency; `zod ^4.0.0` is a peer dependency.
+- `fflate` is the only runtime dependency.
 - CI covers Node.js 22, 24, and 26. Browser engines are not currently tested in CI.
 
 ## Project
