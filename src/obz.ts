@@ -37,7 +37,7 @@ export interface ParsedOBZ {
  * so this exists only for the naming symmetry with {@link loadOBF}.
  *
  * @param file - A `File` handle pointing to an `.obz` archive.
- * @param options - Optional {@link UnzipOptions} on declared uncompressed sizes.
+ * @param options - Optional {@link UnzipOptions} (extraction limits).
  * @returns The parsed manifest, boards, root board, and binary resources.
  *
  * @throws {@link OBFError} — the same failures as {@link extractOBZ}, which
@@ -54,6 +54,8 @@ export async function loadOBZ(
 /**
  * Decompress an OBZ archive and return its manifest, boards, and resources.
  *
+ * `manifest.json` is required, even for a single-board package.
+ *
  * @param archive - The OBZ archive as a `File`, `Blob`, `ArrayBuffer`, or
  *   `ArrayBufferView` (e.g. a Node `Buffer`).
  * @param options - Optional {@link UnzipOptions}. `options.limits` caps
@@ -62,11 +64,23 @@ export async function loadOBZ(
  * @returns A {@link ParsedOBZ} with the archive's manifest, boards, root
  *   board, and resources.
  *
- * @throws {@link OBFError}; branch on `info.code`: `"not-zip"`,
- *   `"unreadable-zip"`, `"archive-too-large"` (a limit in `options.limits` is
- *   exceeded), `"missing-manifest"`, `"not-json"` or `"invalid-manifest"`
- *   (bad manifest), `"missing-board"`, `"board-id-mismatch"`, or
- *   `"invalid-board"` (a board fails validation).
+ * @throws {@link OBFError} `"not-zip"` if the input lacks the ZIP signature.
+ * @throws {@link OBFError} `"unreadable-zip"` if the archive cannot be
+ *   decompressed.
+ * @throws {@link OBFError} `"archive-too-large"` if a limit in
+ *   `options.limits` is exceeded.
+ * @throws {@link OBFError} `"missing-manifest"` if there is no
+ *   `manifest.json`.
+ * @throws {@link OBFError} `"not-json"` if the manifest or a board is not
+ *   valid JSON; `info.source` says which.
+ * @throws {@link OBFError} `"invalid-manifest"` if the manifest fails schema
+ *   validation.
+ * @throws {@link OBFError} `"missing-board"` if a board the manifest declares
+ *   is absent.
+ * @throws {@link OBFError} `"board-id-mismatch"` if a board's `id` differs
+ *   from its manifest key.
+ * @throws {@link OBFError} `"invalid-board"` if a board fails schema
+ *   validation.
  * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export async function extractOBZ(
@@ -89,12 +103,12 @@ export async function extractOBZ(
 
 /**
  * Parse and validate an OBZ manifest — the table of contents that maps
- * board IDs to their file paths within the archive.
+ * board, image, and sound IDs to their file paths within the archive.
+ *
+ * Strips a leading UTF-8 BOM before parsing, like {@link parseOBF}.
  *
  * @param json - A JSON string representing the manifest.
  * @returns The validated manifest object.
- *
- * Strips an optional UTF-8 BOM prefix before parsing, like {@link parseOBF}.
  *
  * @throws {@link OBFError} with `info.code` `"not-json"` if the JSON is
  *   malformed, or `"invalid-manifest"` if it fails schema validation.
@@ -127,9 +141,9 @@ export function parseManifest(json: string): OBFManifest {
  * Bundle boards and optional resources into a compressed OBZ archive.
  *
  * A manifest is generated automatically from the supplied boards,
- * using the `rootBoardId` to designate the entry-point board.
- *
- * Every failure is an {@link OBFError}; branch on `info.code`.
+ * using the `rootBoardId` to designate the entry-point board. The manifest is
+ * written to `manifest.json` and each board to a file under `boards/`; a
+ * resource at the same path as one of these is rejected.
  *
  * @param boards - The boards to include in the archive.
  * @param rootBoardId - The entry-point board's ID.
@@ -149,6 +163,7 @@ export function parseManifest(json: string): OBFManifest {
  * @throws {@link OBFError} `"path-collision"` if a resource would overwrite
  *   the generated manifest or a board file.
  * @throws {@link OBFError} `"zip-failed"` if archive compression fails.
+ * @throws {@link URIError} if a board ID contains a lone UTF-16 surrogate.
  */
 export async function createOBZ(
   boards: OBFBoard[],
@@ -265,10 +280,10 @@ function validateBoardForPackaging(board: OBFBoard): OBFBoard {
 /**
  * Derive a board's archive path from its ID.
  *
- * Board IDs may be any non-empty string, but archive paths give `/` and `\`
- * structural meaning. Percent-encoding keeps the mapping deterministic and
- * collision-free without rejecting any valid ID: `/` or `..` is encoded as
- * filename text, never interpreted as a path segment.
+ * Board IDs may be any non-empty string, but `/` and `\` are path separators
+ * in an archive. Percent-encoding them keeps the mapping deterministic and
+ * collision-free, and the `.obf` suffix stops an ID like `..` from naming a
+ * parent directory. `encodeURIComponent` throws `URIError` on a lone surrogate.
  */
 function boardPath(id: string): string {
   return `boards/${encodeURIComponent(id)}.obf`;
@@ -311,7 +326,7 @@ function collectMediaPaths(
 
 /**
  * Assert that every media path the generated manifest declares exists as an
- * archive entry — the same contract {@link extractOBZ} assumes when reading.
+ * archive entry, so readers can resolve every path the manifest lists.
  *
  * Only media with a `path` reach this check, so `url`/`data`-only media are
  * never flagged.
@@ -377,8 +392,6 @@ function extractBoards(
     }
   }
 
-  // `OBFManifestSchema` requires `root` to be one of `paths.boards`, so the loop
-  // above always assigns `rootBoard` for the validated manifests we receive.
   /* v8 ignore start -- defensive: OBFManifestSchema guarantees root ∈ paths.boards */
   if (!rootBoard) {
     throw new OBFError({

@@ -29,8 +29,8 @@ export type BinaryInput = File | Blob | ArrayBuffer | ArrayBufferView;
  * Normalize any {@link BinaryInput} shape into a plain `ArrayBuffer`.
  *
  * A view is sliced to its own window rather than returning `.buffer`
- * directly, since a `Uint8Array`/`Buffer` may cover only part of a larger,
- * possibly shared, underlying buffer.
+ * directly, since a `Uint8Array`/`Buffer` may cover only part of a larger
+ * underlying buffer (e.g. Node's `Buffer` pool).
  */
 export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
   if (input instanceof ArrayBuffer) {
@@ -48,9 +48,9 @@ export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
 }
 
 /**
- * Optional caps on declared uncompressed sizes, checked against ZIP metadata
- * before each entry is inflated. These limits reduce allocation risk but are
- * not strict memory guarantees because archive metadata can be dishonest.
+ * Optional caps on entry count and declared uncompressed sizes, checked
+ * against ZIP metadata before each entry is inflated. They reduce allocation
+ * risk but are not strict memory guarantees, since archive metadata can lie.
  */
 export interface UnzipLimits {
   /** Max declared uncompressed size of any single entry, in bytes. */
@@ -70,9 +70,7 @@ export interface UnzipOptions {
 /**
  * Decompress a ZIP archive into a map of file paths to raw bytes.
  *
- * Directory entries (paths ending in `/`, which some tools write explicitly
- * even though ZIP doesn't require them) are dropped — they carry no content
- * and this map is documented as file paths to bytes.
+ * Directory entries (paths ending in `/`) are dropped; they carry no content.
  *
  * @param archive - The ZIP archive as an `ArrayBuffer`.
  * @param options - Optional {@link UnzipOptions}. `options.limits` is checked
@@ -185,10 +183,11 @@ export function unzip(
 
     if (limitError) {
       const error = limitError;
-      // This deliberately lets archive-too-large pre-empt an in-flight entry's
-      // corruption error.
-      terminate(); // Stop any dispatched asynchronous inflate workers.
-      // Defer so an archive error from fflate's synchronous pass settles first.
+      // Cancel async inflate workers, so a tripped limit pre-empts their
+      // corruption errors. The rejection is deferred, so errors fflate raised
+      // during its synchronous pass (a malformed archive or a small corrupt
+      // entry) still settle first.
+      terminate();
       queueMicrotask(() => {
         if (!settled) {
           settled = true;

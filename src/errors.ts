@@ -12,8 +12,8 @@
  * } catch (error) {
  *   if (!(error instanceof OBFError)) throw error;
  *   switch (error.info.code) {
- *     case "missing-resource":
- *       reupload(error.info.kind, error.info.path); // both fully typed
+ *     case "missing-board":
+ *       report(error.info.boardId, error.info.path); // both fully typed
  *       break;
  *     case "invalid-board":
  *       showIssues(error.info.issues);
@@ -25,12 +25,9 @@
 
 import { z } from "zod";
 
-/**
- * A single schema validation problem — Zod's issue shape, re-exported under a
- * domain name. `z.core.$ZodIssue` is the type Zod v4 designates for libraries
- * built on it (the bare `z.ZodIssue` is deprecated in its favor); aliasing it
- * gives consumers a stable OBF name without reaching into Zod's `core` export.
- */
+// Zod v4 deprecates the bare `z.ZodIssue` in favor of `z.core.$ZodIssue` for
+// libraries built on it.
+/** A single schema validation problem (Zod's issue shape, under an OBF name). */
 export type OBFIssue = z.core.$ZodIssue;
 
 /**
@@ -39,10 +36,10 @@ export type OBFIssue = z.core.$ZodIssue;
  * Switch on `code`; each variant carries the fields relevant to it. When a
  * failure wraps an underlying error it lives on the standard `error.cause`,
  * never duplicated here. The only optional field is `invalid-board`'s
- * `boardId`, absent when validation runs before a board `id` is known.
+ * `boardId`, set only by `createOBZ` when the rejected board has a usable `id`.
  */
 export type OBFErrorInfo =
-  // --- decoding (underlying parser/decompressor error on `error.cause`) ---
+  // --- decoding (parse/inflate failures carry the error on `error.cause`) ---
   /** Input was not parseable JSON. */
   | { code: "not-json"; source: "board" | "manifest" }
   /** An OBZ archive was expected, but the bytes are not a ZIP. */
@@ -72,7 +69,7 @@ export type OBFErrorInfo =
       path: string;
     }
   // --- validation (underlying `ZodError` on `error.cause`) ---
-  /** A board failed schema validation. `boardId` is set when known. */
+  /** A board failed schema validation. `boardId` is set only by `createOBZ`. */
   | { code: "invalid-board"; boardId?: string; issues: readonly OBFIssue[] }
   /** A manifest failed schema validation. */
   | { code: "invalid-manifest"; issues: readonly OBFIssue[] }

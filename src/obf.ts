@@ -16,8 +16,7 @@ export function stripBom(text: string): string {
 /**
  * Parse a JSON string into a validated OBF board.
  *
- * Strips an optional UTF-8 BOM prefix before parsing and throws a
- * descriptive error if the input is malformed or fails schema validation.
+ * Strips a leading UTF-8 BOM before parsing.
  *
  * @param json - The JSON string to parse.
  * @returns The validated board object.

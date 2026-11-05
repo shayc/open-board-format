@@ -33,10 +33,8 @@ export type LoadedBoard =
  * accordingly.
  *
  * Input that begins with the ZIP magic prefix is treated as an `.obz` package;
- * anything else is parsed as an `.obf` board. The input is read once, so
- * consumers can accept either format from a single drag-and-drop, file picker,
- * or fetch response without inspecting the file extension or re-deriving the
- * OBF-vs-OBZ distinction themselves.
+ * anything else is parsed as an `.obf` board. No file extension is needed. For
+ * a fetch `Response`, pass `await response.blob()`.
  *
  * @param input - A `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView`
  *   (e.g. a Node `Buffer`) holding `.obf` or `.obz` content.

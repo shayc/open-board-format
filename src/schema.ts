@@ -18,7 +18,7 @@ const OBFOptionalEmailSchema = z
   .transform((val) => (val === "" ? undefined : val))
   .optional();
 
-/** Optional ID that treats empty strings as undefined. */
+/** Optional ID: numbers are coerced to strings, empty strings to undefined. */
 const OBFOptionalIDSchema = z
   .union([z.string(), z.number()])
   .transform((val) => {
@@ -27,13 +27,16 @@ const OBFOptionalIDSchema = z
   })
   .optional();
 
-/** Unique board-element identifier, coerced to a non-empty string. */
+/**
+ * Identifier for a board, button, or media item, coerced to a non-empty
+ * string. The spec requires uniqueness per file; this schema does not check it.
+ */
 export const OBFIDSchema = z
   .union([z.string(), z.number()])
   .transform((val) => String(val))
   .pipe(z.string().min(1));
 
-/** Unique board-element identifier, coerced to a non-empty string. See {@link OBFIDSchema}. */
+/** Identifier for a board, button, or media item, coerced to a non-empty string. See {@link OBFIDSchema}. */
 export type OBFID = z.infer<typeof OBFIDSchema>;
 
 /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
@@ -138,7 +141,7 @@ export const OBFMediaSchema = z.looseObject({
   /** Path to the media file within an `.obz` package. */
   path: z.string().optional(),
   /**
-   * URL of an API endpoint for fetching the media programmatically —
+   * URL of an API endpoint that returns information about the media —
    * not a `data:` URI (that is `data`).
    */
   data_url: OBFOptionalUrlSchema,
@@ -276,12 +279,10 @@ export const OBFButtonSchema = z
 /** Interactive board element, optionally linked to images, sounds, and actions. See {@link OBFButtonSchema}. */
 export type OBFButton = z.infer<typeof OBFButtonSchema>;
 
-/**
- * Upper bound on grid dimensions. A board only needs these to lay out cells;
- * a consumer allocates rows × columns, so an unbounded value (e.g. 1e9) would
- * exhaust memory. 100 is generous headroom over any real AAC board (~15–20)
- * and caps the hostile worst case at 100 × 100 cells.
- */
+// Upper bounds on grid dimensions. A consumer allocates rows × columns cells,
+// so an unbounded value (e.g. 1e9) would exhaust memory. 100 is generous
+// headroom over any real AAC board (~15–20) and caps the hostile worst case at
+// 100 × 100 cells.
 const MAX_GRID_ROWS = 100;
 const MAX_GRID_COLUMNS = 100;
 
