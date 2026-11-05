@@ -1,11 +1,14 @@
 /**
  * Checks that field docs from `src/schema.ts` reach the published types.
  *
- * TypeScript drops JSDoc from object literals when it emits declarations, so
- * every object schema must be built with `obfObject<Shape>()` from a named
- * shape type (see `src/schema.ts`). This script fails when the built
- * declarations contain an inline object shape, a shape field without a doc
- * comment, or an object schema whose shape type is missing.
+ * TypeScript's declaration emitter drops JSDoc from mapped-type properties,
+ * and Zod's `z.looseObject()` and `.extend()` return their shape through a
+ * mapped type. So every object schema must be built with `obfObject<Shape>()`
+ * from a named shape type (see `src/schema.ts`). This script fails when the
+ * built declarations contain an inline object shape, a shape field without a
+ * doc comment, or an object schema whose shape type is missing. It also fails
+ * when it finds no schemas or no shape fields at all, so a change in the
+ * declaration format cannot make it pass by checking nothing.
  *
  * Run after `npm run build`.
  */
@@ -28,6 +31,7 @@ lines.forEach((line, i) => {
 // on one line (e.g. a mapped type merging other shapes) must not declare
 // fields of its own, since a one-line field has no doc comment.
 const shapes = new Set();
+let fields = 0;
 for (let i = 0; i < lines.length; i++) {
   const start = /^type (\w+Shape) = (.*)$/.exec(lines[i]);
   if (!start) {
@@ -35,19 +39,31 @@ for (let i = 0; i < lines.length; i++) {
   }
   shapes.add(start[1]);
   if (!start[2].endsWith("{")) {
-    const field = /[{;] (\w+)\??: /.exec(start[2]);
+    const field = /[{;]\s+(\w+)\??:\s/.exec(start[2]);
     if (field) {
       errors.push(`line ${i + 1}: ${start[1]}.${field[1]} has no doc comment`);
     }
     continue;
   }
+  // Fields sit at the indentation of the shape's first line, whatever the
+  // emitter uses (spaces or tabs, any width).
+  const indent = /^\s*/.exec(lines[i + 1] ?? "")[0];
   let previous = lines[i];
   for (i++; i < lines.length && !lines[i].startsWith("}"); i++) {
-    const field = /^ {2}(\w+)\??: /.exec(lines[i]);
-    if (field && !previous.trimEnd().endsWith("*/")) {
-      errors.push(`line ${i + 1}: ${start[1]}.${field[1]} has no doc comment`);
+    const line = lines[i];
+    const field =
+      indent && line.startsWith(indent)
+        ? /^(\w+)\??:\s/.exec(line.slice(indent.length))
+        : null;
+    if (field) {
+      fields++;
+      if (!previous.trimEnd().endsWith("*/")) {
+        errors.push(
+          `line ${i + 1}: ${start[1]}.${field[1]} has no doc comment`,
+        );
+      }
     }
-    previous = lines[i];
+    previous = line;
   }
 }
 
@@ -68,6 +84,10 @@ if (schemas === 0) {
   errors.push("no object schemas found; has the declaration format changed?");
 }
 
+if (fields === 0) {
+  errors.push("no shape fields found; has the declaration format changed?");
+}
+
 if (errors.length > 0) {
   console.error(
     `check:dts failed for dist/index.d.mts:\n  ${errors.join("\n  ")}`,
@@ -76,5 +96,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `check:dts: ${schemas} object schemas and ${shapes.size} shape types keep their field docs.`,
+  `check:dts: ${schemas} object schemas, ${shapes.size} shape types, and ${fields} fields keep their field docs.`,
 );

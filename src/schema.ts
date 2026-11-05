@@ -2,10 +2,13 @@
  * Zod schemas for the Open Board Format (OBF) data model.
  *
  * Every object schema is built with {@link obfObject} from a named shape type
- * (`OBFButtonShape`, …) that holds its field docs. TypeScript drops JSDoc from
- * object literals when it emits declarations, so the shape types are what
- * carry field docs into the published types and consumers' editor hovers.
- * Document fields on the shape type, not on the schema literal.
+ * (`OBFButtonShape`, …) that holds its field docs. `z.looseObject()` and
+ * `.extend()` return the shape through a mapped type (Zod's `util.Writeable`
+ * and `util.Extend`), and TypeScript's declaration emitter drops JSDoc from
+ * mapped-type properties. Naming the shape type keeps the field docs in the
+ * published types and consumers' editor hovers, and lets declarations
+ * reference nested schemas by name instead of inlining them. Document fields
+ * on the shape type, not on the schema literal.
  *
  * Official OBF specification: https://www.openboardformat.org/docs
  */
@@ -16,14 +19,21 @@ import { z } from "zod";
  * Builds a loose object schema whose declared type is exactly `Shape`, so the
  * JSDoc on `Shape`'s fields survives declaration emit.
  *
- * The type argument is required: omitting it falls back to `never`, which no
- * shape satisfies. `NoInfer` makes TypeScript check the shape literal against
- * `Shape` instead of inferring from it, so a missing, extra, or wrongly typed
- * field is a compile error at that field.
+ * The explicit type argument makes TypeScript check the shape literal against
+ * `Shape`, so a missing, extra, or wrongly typed field is a compile error at
+ * that field. The type argument is required: `NoInfer` stops TypeScript from
+ * inferring it from the literal, so omitting it falls back to `never`, which
+ * no shape satisfies.
+ *
+ * Shape fields must not be optional (`label?:`). Optionality belongs in the
+ * field's Zod type (`z.ZodOptional<…>`); an optional key would silently turn
+ * the field's inferred type into `unknown`, so the constraint rejects it.
  */
-function obfObject<Shape extends z.core.$ZodLooseShape = never>(
-  shape: NoInfer<Shape>,
-): z.ZodObject<Shape, z.core.$loose> {
+function obfObject<
+  Shape extends z.core.$ZodLooseShape & {
+    [K in keyof Shape]-?: z.core.$ZodType;
+  } = never,
+>(shape: NoInfer<Shape>): z.ZodObject<Shape, z.core.$loose> {
   // `z.looseObject` returns `ZodObject<Writeable<Shape>>`, which only strips
   // `readonly` modifiers. Shape types declare none, so this cast is exact.
   return z.looseObject(shape) as z.ZodObject<Shape, z.core.$loose>;
