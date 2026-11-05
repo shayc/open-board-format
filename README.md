@@ -71,7 +71,7 @@ import { createOBZ } from "@shayc/open-board-format";
 const obz = await createOBZ([board], board.id, resources);
 ```
 
-`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board.
+The second argument names the entry-point board. Before packaging, `createOBZ` validates every board and rejects duplicate IDs, an unknown root, conflicting media paths, missing media resources, and resources that would overwrite generated files. It then generates the manifest and writes boards to `boards/<encoded-id>.obf`.
 
 ### Validate a board
 
@@ -106,8 +106,6 @@ const board = validateOBF(value);
 | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`        | Validate and package boards and resources with a generated manifest |
 | `parseManifest(json)`                        | `OBFManifest`          | Parse and validate manifest JSON                                    |
 
-Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
-
 ### Types and schemas
 
 ```ts
@@ -127,9 +125,7 @@ Every data model exports both a type and a Zod schema, such as `OBFBoard` and `O
 
 ### Errors
 
-High-level APIs report expected parsing, validation, and archive failures as `OBFError`.
-
-Branch on `error.info.code`, not `error.message`.
+High-level APIs report expected parsing, validation, and archive failures as `OBFError`. Branch on `error.info.code`, not `error.message`; each code narrows `error.info` to its own fields.
 
 ```ts
 import { loadBoard, OBFError } from "@shayc/open-board-format";
@@ -137,11 +133,18 @@ import { loadBoard, OBFError } from "@shayc/open-board-format";
 try {
   await loadBoard(file);
 } catch (error) {
-  if (error instanceof OBFError) {
-    console.error(error.info.code);
-  }
+  if (!(error instanceof OBFError)) throw error;
 
-  throw error;
+  switch (error.info.code) {
+    case "invalid-board":
+      console.error(error.info.issues);
+      break;
+    case "archive-too-large":
+      console.error(`Archive too large at ${error.info.path}`);
+      break;
+    default:
+      throw error;
+  }
 }
 ```
 
@@ -169,11 +172,9 @@ try {
 
 </details>
 
-Validation failures expose the underlying `ZodError` as `error.cause` and provide its flat issue list through `error.info.issues`.
+Validation failures expose the underlying `ZodError` as `error.cause` and its flat issue list as `error.info.issues`. `not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library bug and should be reported.
 
-`not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library invariant failure and should be reported.
-
-Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
+Two failures are not `OBFError`s: direct schema `.parse()` calls throw `ZodError`, and a `NaN` extraction limit throws `TypeError`.
 
 ### Low-level ZIP utilities
 
