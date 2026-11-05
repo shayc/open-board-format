@@ -49,8 +49,6 @@ my-board.obz
     └── hello.mp3
 ```
 
-Every OBZ archive requires `manifest.json` at its root, even when it contains only one board.
-
 ## Examples
 
 ### Read an OBZ archive
@@ -69,6 +67,31 @@ The returned `ParsedOBZ` contains:
 - `resources`: a `Map` containing the raw bytes of every file entry.
 
 For untrusted archives, configure [extraction limits](#extraction-limits).
+
+### Show a button's image
+
+```ts
+import type { OBFBoard, OBFButton } from "@shayc/open-board-format";
+
+function imageSrc(
+  board: OBFBoard,
+  button: OBFButton,
+  resources?: Map<string, Uint8Array>,
+) {
+  const image = board.images?.find((i) => i.id === button.image_id);
+  if (!image) return undefined;
+  if (image.data) return image.data;
+
+  const bytes = image.path ? resources?.get(image.path) : undefined;
+  if (bytes) {
+    return URL.createObjectURL(new Blob([bytes], { type: image.content_type }));
+  }
+
+  return image.url;
+}
+```
+
+Media resolves from `data`, then `path` (an entry in an OBZ archive's `resources`), then `url`. An image may instead name a `symbol` from a proprietary symbol set, which needs its own lookup. Sounds follow the same order.
 
 ### Create an OBZ archive
 
@@ -90,34 +113,7 @@ import { validateOBF } from "@shayc/open-board-format";
 const board = validateOBF(value);
 ```
 
-`validateOBF` returns a normalized copy of the board or throws an `OBFError`. Every data model also has a matching `…Schema` export, such as `OBFBoardSchema`, for composing your own checks with Zod.
-
-## Validation details
-
-Validation returns a parsed copy of the input. Known fields may be normalized during parsing:
-
-- Numeric IDs become strings.
-- Empty optional IDs, URLs, and email addresses become `undefined`.
-- Unknown properties are preserved at every loose-object level, with or without an `ext_` prefix.
-
-Structural validation checks:
-
-- URL and email fields are syntax-checked.
-- Grid dimensions must be integers from 1 through 100.
-- `grid.order` must exactly match the declared row and column counts.
-- Positioned buttons must provide `top`, `left`, `width`, and `height`, each between 0 and 1.
-- Format versions must match `open-board-*`; they are not restricted to `open-board-0.1`.
-- An OBZ manifest root must appear in `paths.boards`.
-
-Validation is not a complete OBF conformance or graph-integrity check. It does not enforce:
-
-- Unique button, image, or sound IDs.
-- Resolution of `grid.order`, `image_id`, `sound_id`, or `load_board` references.
-- A consistent positioning mode across every button on a board.
-- BCP 47 locale syntax, color syntax, MIME correctness, or safe HTML.
-- During extraction, the existence of manifest-declared media files or their agreement with board media records.
-
-Add application-specific checks after parsing when those guarantees matter.
+`validateOBF` returns a [normalized](#validation-details) copy of the board or throws an `OBFError`. Every data model also has a matching `…Schema` export, such as `OBFBoardSchema`, for composing your own checks with Zod.
 
 ## API reference
 
@@ -144,32 +140,14 @@ Add application-specific checks after parsing when those guarantees matter.
 
 Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
 
-### Types and schemas
+### Types
 
-`LoadedBoard` is a discriminated union:
+`LoadedBoard` is a discriminated union. The fields of `ParsedOBZ` are listed under [Read an OBZ archive](#read-an-obz-archive).
 
 ```ts
 { format: "obf", board: OBFBoard }
   | { format: "obz", archive: ParsedOBZ }
 ```
-
-`ParsedOBZ` provides the validated archive contents:
-
-```ts
-interface ParsedOBZ {
-  manifest: OBFManifest;
-  boards: Map<string, OBFBoard>;
-  rootBoard: OBFBoard;
-  resources: Map<string, Uint8Array>;
-}
-```
-
-Main exports include:
-
-- Board, action, media, metadata, and manifest types.
-- Matching Zod schemas, including `OBFBoardSchema` and `OBFManifestSchema`.
-- Input and archive types: `BinaryInput`, `ParsedOBZ`, and `LoadedBoard`.
-- Structured errors through `OBFError` and its related types.
 
 ### Errors
 
@@ -228,6 +206,32 @@ Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
 | `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` or view has a ZIP signature |
 | `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
 | `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers        |
+
+## Validation details
+
+Validation returns a parsed copy of the input. Known fields may be normalized during parsing:
+
+- Numeric IDs become strings.
+- Empty optional IDs, URLs, and email addresses become `undefined`.
+- Unknown properties are preserved at every loose-object level, with or without an `ext_` prefix.
+
+Structural validation checks:
+
+- URL and email fields are syntax-checked.
+- Grid dimensions must be integers from 1 through 100.
+- `grid.order` must exactly match the declared row and column counts.
+- Positioned buttons must provide `top`, `left`, `width`, and `height`, each between 0 and 1.
+- An OBZ manifest root must appear in `paths.boards`.
+
+Validation is not a complete OBF conformance or graph-integrity check. It does not enforce:
+
+- Unique button, image, or sound IDs.
+- Resolution of `grid.order`, `image_id`, `sound_id`, or `load_board` references.
+- A consistent positioning mode across every button on a board.
+- BCP 47 locale syntax, color syntax, MIME correctness, or safe HTML.
+- During extraction, the existence of manifest-declared media files or their agreement with board media records.
+
+Add application-specific checks after parsing when those guarantees matter.
 
 ## Security
 
