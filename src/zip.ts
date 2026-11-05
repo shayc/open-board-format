@@ -1,9 +1,16 @@
 /**
  * Minimal ZIP helpers over fflate: signature sniffing, unzip, and zip.
+ *
+ * Only fflate's synchronous API is used. Its asynchronous API moves large
+ * entries into Workers created from `blob:` URLs. A Content Security Policy
+ * that does not allow `blob:` workers (`default-src 'self'` is enough) blocks
+ * them without an error fflate can see, so the promise never settles. The work
+ * is CPU-bound and mostly ran on the calling thread anyway; to keep a page
+ * responsive while handling large archives, run this package in a Worker.
  */
 
-import type { UnzipFileInfo } from "fflate";
-import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
+import type { UnzipFileInfo, ZipOptions, Zippable } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 import { OBFError } from "./errors";
 
 /**
@@ -100,103 +107,80 @@ export function unzip(
     }
   }
 
-  return new Promise((resolve, reject) => {
-    const compressed = new Uint8Array(archive);
-    const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
-      options?.limits ?? {};
+  const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
+    options?.limits ?? {};
 
-    let limitError: OBFError | undefined;
-    let settled = false;
-    let totalDeclared = 0;
-    let entryCount = 0;
+  let limitError: OBFError | undefined;
+  let totalDeclared = 0;
+  let entryCount = 0;
 
-    const filter = (file: UnzipFileInfo): boolean => {
-      if (limitError) {
-        return false; // Skip the remaining entries cheaply.
-      }
-
-      entryCount += 1;
-      if (maxEntries !== undefined && entryCount > maxEntries) {
-        limitError = new OBFError({
-          code: "archive-too-large",
-          limit: "maxEntries",
-          maxEntries,
-          entryCount,
-          path: file.name,
-        });
-        return false;
-      }
-
-      if (maxEntrySize !== undefined && file.originalSize > maxEntrySize) {
-        limitError = new OBFError({
-          code: "archive-too-large",
-          limit: "maxEntrySize",
-          maxBytes: maxEntrySize,
-          declaredBytes: file.originalSize,
-          path: file.name,
-        });
-        return false;
-      }
-
-      totalDeclared += file.originalSize;
-      if (
-        maxTotalOriginalSize !== undefined &&
-        totalDeclared > maxTotalOriginalSize
-      ) {
-        limitError = new OBFError({
-          code: "archive-too-large",
-          limit: "maxTotalOriginalSize",
-          maxBytes: maxTotalOriginalSize,
-          declaredBytes: totalDeclared,
-          path: file.name,
-        });
-        return false;
-      }
-
-      return true;
-    };
-
-    const terminate = fflateUnzip(
-      compressed,
-      options?.limits ? { filter } : {},
-      (error, entries) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-
-        if (error) {
-          reject(new OBFError({ code: "unreadable-zip" }, { cause: error }));
-          return;
-        }
-
-        if (limitError) {
-          reject(limitError);
-          return;
-        }
-
-        const pathToBytes = new Map(
-          Object.entries(entries).filter(([path]) => !path.endsWith("/")),
-        );
-
-        resolve(pathToBytes);
-      },
-    );
-
+  // Entries are inflated in archive order, so a corrupt entry before the one
+  // that trips a limit reports `unreadable-zip`; entries after it are skipped.
+  const filter = (file: UnzipFileInfo): boolean => {
     if (limitError) {
-      const error = limitError;
-      // This deliberately lets archive-too-large pre-empt an in-flight entry's
-      // corruption error.
-      terminate(); // Stop any dispatched asynchronous inflate workers.
-      // Defer so an archive error from fflate's synchronous pass settles first.
-      queueMicrotask(() => {
-        if (!settled) {
-          settled = true;
-          reject(error);
-        }
-      });
+      return false; // Skip the remaining entries cheaply.
     }
-  });
+
+    entryCount += 1;
+    if (maxEntries !== undefined && entryCount > maxEntries) {
+      limitError = new OBFError({
+        code: "archive-too-large",
+        limit: "maxEntries",
+        maxEntries,
+        entryCount,
+        path: file.name,
+      });
+      return false;
+    }
+
+    if (maxEntrySize !== undefined && file.originalSize > maxEntrySize) {
+      limitError = new OBFError({
+        code: "archive-too-large",
+        limit: "maxEntrySize",
+        maxBytes: maxEntrySize,
+        declaredBytes: file.originalSize,
+        path: file.name,
+      });
+      return false;
+    }
+
+    totalDeclared += file.originalSize;
+    if (
+      maxTotalOriginalSize !== undefined &&
+      totalDeclared > maxTotalOriginalSize
+    ) {
+      limitError = new OBFError({
+        code: "archive-too-large",
+        limit: "maxTotalOriginalSize",
+        maxBytes: maxTotalOriginalSize,
+        declaredBytes: totalDeclared,
+        path: file.name,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(
+      new Uint8Array(archive),
+      options?.limits ? { filter } : {},
+    );
+  } catch (error) {
+    return Promise.reject(
+      new OBFError({ code: "unreadable-zip" }, { cause: error }),
+    );
+  }
+
+  if (limitError) {
+    return Promise.reject(limitError);
+  }
+
+  return Promise.resolve(
+    new Map(Object.entries(entries).filter(([path]) => !path.endsWith("/"))),
+  );
 }
 
 /**
@@ -215,25 +199,36 @@ export function unzip(
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,
 ): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const pathToBytes: Record<string, Uint8Array> = {};
+  return zipWithLevels(entries, () => COMPRESSION_LEVEL);
+}
 
-    for (const [path, content] of entries) {
-      pathToBytes[path] =
-        content instanceof Uint8Array ? content : new Uint8Array(content);
-    }
+/** A deflate level on fflate's 0–9 scale; 0 stores the entry uncompressed. */
+export type CompressionLevel = NonNullable<ZipOptions["level"]>;
 
-    fflateZip(pathToBytes, { level: COMPRESSION_LEVEL }, (error, result) => {
-      /* v8 ignore start -- defensive: fflate does not error on valid byte input */
-      if (error) {
-        reject(new OBFError({ code: "zip-failed" }, { cause: error }));
-        return;
-      }
-      /* v8 ignore stop */
+/**
+ * {@link zip} with a deflate level chosen per entry. Internal: `createOBZ`
+ * uses it to store media that is already compressed.
+ */
+export function zipWithLevels(
+  entries: Map<string, Uint8Array | ArrayBuffer>,
+  levelFor: (path: string) => CompressionLevel,
+): Promise<Uint8Array> {
+  const zippable: Zippable = {};
 
-      resolve(result);
-    });
-  });
+  for (const [path, content] of entries) {
+    const bytes =
+      content instanceof Uint8Array ? content : new Uint8Array(content);
+    zippable[path] = [bytes, { level: levelFor(path) }];
+  }
+
+  try {
+    return Promise.resolve(zipSync(zippable));
+  } catch (error) {
+    /* v8 ignore next 2 -- defensive: fflate does not error on valid byte input */
+    return Promise.reject(
+      new OBFError({ code: "zip-failed" }, { cause: error }),
+    );
+  }
 }
 
 /**

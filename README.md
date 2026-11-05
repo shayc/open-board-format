@@ -251,6 +251,7 @@ Found a vulnerability? Email [shayc@outlook.com](mailto:shayc@outlook.com) rathe
 - Pure ESM for Node.js `>=22` and modern browsers; CommonJS is unsupported.
 - Browser environments must provide `Blob`, `File`, `TextEncoder`, and `TextDecoder`.
 - `fflate` is the only runtime dependency.
+- No Workers are created, so the package works under a strict Content Security Policy. ZIP work runs on the calling thread; to keep a page responsive while handling large archives, call the package from your own Worker.
 - CI covers Node.js 22, 24, and 26. Browser engines are not currently tested in CI.
 
 ## Project
