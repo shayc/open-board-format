@@ -68,31 +68,6 @@ The returned `ParsedOBZ` contains:
 
 For untrusted archives, configure [extraction limits](#extraction-limits).
 
-### Show a button's image
-
-```ts
-import type { OBFBoard, OBFButton } from "@shayc/open-board-format";
-
-function imageSrc(
-  board: OBFBoard,
-  button: OBFButton,
-  resources?: Map<string, Uint8Array>,
-) {
-  const image = board.images?.find((i) => i.id === button.image_id);
-  if (!image) return undefined;
-  if (image.data) return image.data;
-
-  const bytes = image.path ? resources?.get(image.path) : undefined;
-  if (bytes) {
-    return URL.createObjectURL(new Blob([bytes], { type: image.content_type }));
-  }
-
-  return image.url;
-}
-```
-
-Media resolves from `data`, then `path` (an entry in an OBZ archive's `resources`), then `url`. An image may instead name a `symbol` from a proprietary symbol set, which needs its own lookup. Sounds follow the same order.
-
 ### Create an OBZ archive
 
 Given a board and its media resources:
