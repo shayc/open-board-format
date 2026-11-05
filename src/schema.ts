@@ -1,7 +1,5 @@
 /**
  * Zod schemas for the Open Board Format (OBF) data model.
- *
- * Official OBF specification: https://www.openboardformat.org/docs
  */
 
 import { z } from "zod";
@@ -107,13 +105,9 @@ export const OBFLicenseSchema = z.looseObject({
   type: z.string(),
   /** URL to the license terms. */
   copyright_notice_url: OBFOptionalUrlSchema,
-  /** Source URL of the resource. */
   source_url: OBFOptionalUrlSchema,
-  /** Name of the author. */
   author_name: z.string().optional(),
-  /** URL of the author's webpage. */
   author_url: OBFOptionalUrlSchema,
-  /** Email address of the author. */
   author_email: OBFOptionalEmailSchema,
 });
 
@@ -134,7 +128,6 @@ export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
  * the media bytes.
  */
 export const OBFMediaSchema = z.looseObject({
-  /** Unique identifier for the media resource. */
   id: OBFIDSchema,
   /** Media data inlined as a `data:` URI. */
   data: z.string().optional(),
@@ -145,11 +138,9 @@ export const OBFMediaSchema = z.looseObject({
    * not a `data:` URI (that is `data`).
    */
   data_url: OBFOptionalUrlSchema,
-  /** URL to the media resource. */
   url: OBFOptionalUrlSchema,
   /** MIME type of the media, e.g., `image/png`, `audio/mpeg`. */
   content_type: z.string().optional(),
-  /** Licensing information for the media. */
   license: OBFLicenseSchema.optional(),
 });
 
@@ -160,7 +151,6 @@ export type OBFMedia = z.infer<typeof OBFMediaSchema>;
 export const OBFSymbolInfoSchema = z.looseObject({
   /** Name of the symbol set, e.g., `symbolstix`. */
   set: z.string(),
-  /** Filename of the symbol within the set. */
   filename: z.string(),
 });
 
@@ -179,7 +169,6 @@ export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
  * 4. `symbol`
  */
 export const OBFImageSchema = OBFMediaSchema.extend({
-  /** Information about a symbol from a proprietary symbol set. */
   symbol: OBFSymbolInfoSchema.optional(),
   /** Width of the image in pixels. */
   width: z.number().optional(),
@@ -200,9 +189,7 @@ export type OBFSound = z.infer<typeof OBFSoundSchema>;
 
 /** Reference to another board, resolved by ID, path, or URL. */
 export const OBFLoadBoardSchema = z.looseObject({
-  /** Unique identifier of the board to load. */
   id: OBFOptionalIDSchema,
-  /** Name of the board to load. */
   name: z.string().optional(),
   /**
    * URL of an API endpoint for fetching the board programmatically —
@@ -223,15 +210,11 @@ export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
  */
 export const OBFButtonSchema = z
   .looseObject({
-    /** Unique identifier for the button. */
     id: OBFIDSchema,
-    /** Label text displayed on the button. */
     label: z.string().optional(),
     /** Alternative text for vocalization when the button is activated. */
     vocalization: z.string().optional(),
-    /** Identifier of the image associated with the button. */
     image_id: OBFOptionalIDSchema,
-    /** Identifier of the sound associated with the button. */
     sound_id: OBFOptionalIDSchema,
     /**
      * Action triggered by the button. When `actions` is also set, this is
@@ -243,7 +226,6 @@ export const OBFButtonSchema = z
      * prefer this over the single `action` fallback.
      */
     actions: z.array(OBFButtonActionSchema).optional(),
-    /** Information to load another board when this button is activated. */
     load_board: OBFLoadBoardSchema.optional(),
     /**
      * Background color, typically an `rgb()` or `rgba()` value. Accepts any
@@ -289,9 +271,7 @@ const MAX_GRID_COLUMNS = 100;
 /** Row-and-column layout that arranges buttons by their IDs. */
 export const OBFGridSchema = z
   .looseObject({
-    /** Number of rows in the grid. */
     rows: z.number().int().min(1).max(MAX_GRID_ROWS),
-    /** Number of columns in the grid. */
     columns: z.number().int().min(1).max(MAX_GRID_COLUMNS),
     /** Button IDs by row; `null` marks an empty cell. */
     order: z.array(z.array(z.union([OBFIDSchema, z.null()]))),
@@ -308,31 +288,23 @@ export type OBFGrid = z.infer<typeof OBFGridSchema>;
 
 /**
  * Root object of an `.obf` file: the complete definition of a single communication board.
+ *
+ * Specification: https://www.openboardformat.org/docs
  */
 export const OBFBoardSchema = z.looseObject({
-  /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
   format: OBFFormatVersionSchema,
-  /** Unique identifier for the board. */
   id: OBFIDSchema,
-  /** Locale identifier, typically a BCP 47 language tag such as `en` or `en-US`. */
   locale: OBFLocaleCodeSchema.optional(),
-  /** List of buttons on the board. */
   buttons: z.array(OBFButtonSchema),
   /** URL where the board can be accessed or downloaded. */
   url: OBFOptionalUrlSchema,
-  /** Name of the board. */
   name: z.string().optional(),
   /** Description of the board in HTML format. */
   description_html: z.string().optional(),
-  /** Grid layout information for arranging buttons. */
   grid: OBFGridSchema,
-  /** List of images used in the board. */
   images: z.array(OBFImageSchema).optional(),
-  /** List of sounds used in the board. */
   sounds: z.array(OBFSoundSchema).optional(),
-  /** Licensing information for the board. */
   license: OBFLicenseSchema.optional(),
-  /** String translations for multiple locales. */
   strings: OBFStringsSchema.optional(),
 });
 
@@ -344,17 +316,12 @@ export type OBFBoard = z.infer<typeof OBFBoardSchema>;
  */
 export const OBFManifestSchema = z
   .looseObject({
-    /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
     format: OBFFormatVersionSchema,
     /** Path to the root board within the `.obz` package. */
     root: z.string(),
-    /** Mapping of IDs to paths for boards, images, and sounds. */
     paths: z.looseObject({
-      /** Mapping of board IDs to their file paths. */
       boards: z.record(z.string(), z.string()),
-      /** Mapping of image IDs to their file paths. */
       images: z.record(z.string(), z.string()).optional(),
-      /** Mapping of sound IDs to their file paths. */
       sounds: z.record(z.string(), z.string()).optional(),
     }),
   })

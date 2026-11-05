@@ -1,26 +1,5 @@
 /**
- * Typed errors for `@shayc/open-board-format`.
- *
- * Expected parsing, validation, and archive failures use {@link OBFError}. Each
- * carries a discriminated {@link OBFErrorInfo} on its `info` property. Switch
- * on `error.info.code` for the structured context; the human-readable
- * `message` is derived from `info` and is not part of the stable contract.
- *
- * ```ts
- * try {
- *   await loadBoard(file);
- * } catch (error) {
- *   if (!(error instanceof OBFError)) throw error;
- *   switch (error.info.code) {
- *     case "missing-board":
- *       report(error.info.boardId, error.info.path); // both fully typed
- *       break;
- *     case "invalid-board":
- *       showIssues(error.info.issues);
- *       break;
- *   }
- * }
- * ```
+ * Typed errors for `@shayc/open-board-format`. See {@link OBFError}.
  */
 
 import { z } from "zod";
@@ -115,11 +94,29 @@ export type OBFErrorInfo =
 export type OBFErrorCode = OBFErrorInfo["code"];
 
 /**
- * Structured error for expected failures from `@shayc/open-board-format`.
+ * Structured error for expected parsing, validation, and archive failures from
+ * `@shayc/open-board-format`.
  *
- * Branch on {@link OBFError.info} (a discriminated {@link OBFErrorInfo}) rather
- * than parsing {@link OBFError.message}. Any underlying error — a `JSON.parse`
- * failure, a `ZodError`, or an fflate error — is on the standard `error.cause`.
+ * Switch on `error.info.code` (a discriminated {@link OBFErrorInfo}). The
+ * `message` is derived from `info` and is not part of the stable contract. Any
+ * underlying error — a `JSON.parse` failure, a `ZodError`, or an fflate error —
+ * is on the standard `error.cause`.
+ *
+ * ```ts
+ * try {
+ *   await loadBoard(file);
+ * } catch (error) {
+ *   if (!(error instanceof OBFError)) throw error;
+ *   switch (error.info.code) {
+ *     case "missing-board":
+ *       report(error.info.boardId, error.info.path); // both fully typed
+ *       break;
+ *     case "invalid-board":
+ *       showIssues(error.info.issues);
+ *       break;
+ *   }
+ * }
+ * ```
  */
 export class OBFError extends Error {
   /** Structured, discriminated description of the failure. */
@@ -132,7 +129,6 @@ export class OBFError extends Error {
   }
 }
 
-/** Derive a human-readable message from an {@link OBFErrorInfo}. */
 function formatOBFError(info: OBFErrorInfo): string {
   switch (info.code) {
     case "not-json":
@@ -182,7 +178,6 @@ function formatOBFError(info: OBFErrorInfo): string {
   }
 }
 
-/** Render schema issues using Zod's pretty formatter. */
 function prettifyIssues(issues: readonly OBFIssue[]): string {
   return z.prettifyError(new z.ZodError([...issues]));
 }

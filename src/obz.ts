@@ -33,8 +33,7 @@ export interface ParsedOBZ {
 /**
  * Read a `File` and extract its contents as a parsed OBZ package.
  *
- * A thin convenience wrapper — {@link extractOBZ} accepts a `File` directly,
- * so this exists only for the naming symmetry with {@link loadOBF}.
+ * Same as {@link extractOBZ}, typed for a `File` to mirror {@link loadOBF}.
  *
  * @param file - A `File` handle pointing to an `.obz` archive.
  * @param options - Optional {@link UnzipOptions} (extraction limits).
@@ -327,9 +326,6 @@ function collectMediaPaths(
 /**
  * Assert that every media path the generated manifest declares exists as an
  * archive entry, so readers can resolve every path the manifest lists.
- *
- * Only media with a `path` reach this check, so `url`/`data`-only media are
- * never flagged.
  */
 function assertPathsPresent(
   kind: "image" | "sound",

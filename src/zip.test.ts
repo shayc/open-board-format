@@ -267,7 +267,6 @@ describe("unzip limits", () => {
 
   test("rejects with unreadable-zip, not archive-too-large, when a synchronously-inflated corrupt entry precedes a limit trip", async () => {
     // Both entries stay below fflate's 512 KB synchronous-inflate threshold.
-    // The `terminate()` comment in `unzip()` covers the asynchronous case.
     const zipped = await zip(filesOf(1_000, 200_000));
     const buffer = bytesToArrayBuffer(zipped);
     const bytes = new Uint8Array(buffer);

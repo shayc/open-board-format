@@ -7,8 +7,7 @@ import { unzip as fflateUnzip, zip as fflateZip } from "fflate";
 import { OBFError } from "./errors";
 
 /**
- * First two bytes of every ZIP archive — the ASCII letters `PK`,
- * after Phil Katz, creator of the format.
+ * First two bytes of every ZIP archive — the ASCII letters `PK`.
  *
  * Only the 2-byte prefix is checked intentionally: this keeps detection
  * lightweight and is sufficient for distinguishing ZIP from JSON.
@@ -200,10 +199,7 @@ export function unzip(
 
 /**
  * Compress a map of file paths and contents into a single ZIP archive.
- *
- * Accepts both `Uint8Array` and `ArrayBuffer` values so callers can
- * pass the output of {@link unzip} directly or supply raw `ArrayBuffer`s
- * without converting first.
+ * Round-trips with {@link unzip}: its output can be passed straight back in.
  *
  * @param entries - A map of file paths to their content bytes.
  * @returns The compressed archive as a `Uint8Array`.
