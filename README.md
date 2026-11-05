@@ -59,14 +59,7 @@ import { extractOBZ } from "@shayc/open-board-format";
 const archive = await extractOBZ(obzBytes);
 ```
 
-The returned `ParsedOBZ` contains:
-
-- `manifest`: the validated OBZ manifest.
-- `rootBoard`: the board referenced by `manifest.root`.
-- `boards`: a `Map` keyed by board ID.
-- `resources`: a `Map` containing the raw bytes of every file entry.
-
-For untrusted archives, configure [extraction limits](#extraction-limits).
+It returns a [`ParsedOBZ`](#types-and-schemas) with the validated manifest, every board, the root board, and the raw bytes of every archive entry. For untrusted archives, configure [extraction limits](#extraction-limits).
 
 ### Create an OBZ archive
 
@@ -115,14 +108,22 @@ const board = validateOBF(value);
 
 Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
 
-### Types
-
-`LoadedBoard` is a discriminated union. The fields of `ParsedOBZ` are listed under [Read an OBZ archive](#read-an-obz-archive).
+### Types and schemas
 
 ```ts
-{ format: "obf", board: OBFBoard }
-  | { format: "obz", archive: ParsedOBZ }
+type LoadedBoard =
+  | { format: "obf"; board: OBFBoard }
+  | { format: "obz"; archive: ParsedOBZ };
+
+interface ParsedOBZ {
+  manifest: OBFManifest;
+  boards: Map<string, OBFBoard>; // keyed by board ID
+  rootBoard: OBFBoard; // the board at manifest.root
+  resources: Map<string, Uint8Array>; // every archive entry, keyed by path
+}
 ```
+
+Every data model exports both a type and a Zod schema, such as `OBFBoard` and `OBFBoardSchema`. Other exported types are `BinaryInput`, `UnzipOptions`, `UnzipLimits`, `OBFErrorInfo`, `OBFErrorCode`, and `OBFIssue`.
 
 ### Errors
 
@@ -196,6 +197,7 @@ Structural validation checks:
 - Grid dimensions must be integers from 1 through 100.
 - `grid.order` must exactly match the declared row and column counts.
 - Positioned buttons must provide `top`, `left`, `width`, and `height`, each between 0 and 1.
+- Format versions must match `open-board-*`; they are not restricted to `open-board-0.1`.
 - An OBZ manifest root must appear in `paths.boards`.
 
 Validation is not a complete OBF conformance or graph-integrity check. It does not enforce:
