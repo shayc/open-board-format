@@ -31,7 +31,7 @@ const result = await loadBoard(input);
 const board = result.format === "obf" ? result.board : result.archive.rootBoard;
 ```
 
-`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects the format from the bytes, not the filename. The result is a discriminated union: OBF input yields a `board`, while OBZ input yields an `archive` whose `rootBoard` is the entry point. In Node.js, pass the file's bytes, as in `loadBoard(await readFile("board.obz"))`.
+`loadBoard` accepts a `File`, `Blob`, `ArrayBuffer`, or `ArrayBufferView` and detects OBF or OBZ from the bytes, not the filename. In Node.js, pass the file's bytes: `loadBoard(await readFile("board.obz"))`.
 
 ## Formats
 
@@ -90,7 +90,7 @@ import { validateOBF } from "@shayc/open-board-format";
 const board = validateOBF(value);
 ```
 
-`validateOBF` returns a normalized copy of the board or throws an `OBFError`. To build your own validation, every public OBF data model also has a matching Zod schema export with a `Schema` suffix, such as `OBFBoardSchema`, which composes with Zod APIs like `.extend()` and `.pick()`.
+`validateOBF` returns a normalized copy of the board or throws an `OBFError`. Every data model also has a matching `…Schema` export, such as `OBFBoardSchema`, for composing your own checks with Zod.
 
 ## Validation details
 
@@ -143,16 +143,6 @@ Add application-specific checks after parsing when those guarantees matter.
 | `parseManifest(json)`                        | `OBFManifest`          | Parse and validate manifest JSON                                    |
 
 Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
-
-### Low-level ZIP utilities
-
-The following exports are available for advanced archive workflows:
-
-| Function                  | Returns                            | Behavior                                                   |
-| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` or view has a ZIP signature |
-| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
-| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers        |
 
 ### Types and schemas
 
@@ -230,6 +220,14 @@ Validation failures expose the underlying `ZodError` as `error.cause` and provid
 `not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library invariant failure and should be reported.
 
 Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
+
+### Low-level ZIP utilities
+
+| Function                  | Returns                            | Behavior                                                   |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` or view has a ZIP signature |
+| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
+| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers        |
 
 ## Security
 
