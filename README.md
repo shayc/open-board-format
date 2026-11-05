@@ -20,7 +20,7 @@ npm install @shayc/open-board-format
 
 Requires `zod ^4.0.0` as a peer dependency.
 
-Works in browsers and Node.js. Browser `File` uploads and Node.js `Buffer` values use the same loading API.
+Works in browsers and Node.js.
 
 ## Quick start
 
