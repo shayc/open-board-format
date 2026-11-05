@@ -71,7 +71,7 @@ import { createOBZ } from "@shayc/open-board-format";
 const obz = await createOBZ([board], board.id, resources);
 ```
 
-`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board. Media in already-compressed formats, such as PNG, JPEG, and MP3, is stored without recompression.
+`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board. A `load_board` whose `id` names one of the boards gets its `path` set to that file; links without an `id` are left unchanged. Media in already-compressed formats, such as PNG, JPEG, and MP3, is stored without recompression.
 
 ### Validate a board
 
@@ -106,7 +106,7 @@ const board = validateOBF(value);
 | `createOBZ(boards, rootBoardId, resources?)` | `Promise<Blob>`        | Validate and package boards and resources with a generated manifest |
 | `parseManifest(json)`                        | `OBFManifest`          | Parse and validate manifest JSON                                    |
 
-Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
+Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. Apart from pointing `load_board` links at packaged boards, it does not resolve `load_board`, `image_id`, or `sound_id` references.
 
 ### Types and schemas
 

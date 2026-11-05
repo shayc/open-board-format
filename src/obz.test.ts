@@ -555,6 +555,80 @@ describe("createOBZ", () => {
   });
 });
 
+describe("createOBZ: load_board links", () => {
+  const linksOf = (board: OBFBoard | undefined) =>
+    board?.buttons.map((button) => button.load_board);
+
+  test("points links to packaged boards at the files it writes", async () => {
+    const home = makeBoard({
+      id: "home",
+      buttons: [
+        { id: "1", load_board: { id: "food menu" } },
+        { id: "2", load_board: { id: "5", path: "board_5.obf" } },
+        { id: "3", load_board: { id: "elsewhere", url: "https://x.test/b" } },
+        { id: "4", load_board: { path: "boards/legacy.obf" } },
+        { id: "5", load_board: { id: "constructor" } },
+      ],
+    });
+    const food = makeBoard({ id: "food menu" });
+    const numeric = { ...makeBoard(), id: 5 } as unknown as OBFBoard;
+
+    const blob = await createOBZ([home, food, numeric], "home");
+    const extracted = await extractOBZ(blob);
+
+    expect(extracted.manifest.paths.boards).toEqual({
+      home: "boards/home.obf",
+      "food menu": "boards/food%20menu.obf",
+      "5": "boards/5.obf",
+    });
+    expect(linksOf(extracted.boards.get("home"))).toEqual([
+      { id: "food menu", path: "boards/food%20menu.obf" },
+      { id: "5", path: "boards/5.obf" },
+      { id: "elsewhere", url: "https://x.test/b" },
+      { path: "boards/legacy.obf" },
+      { id: "constructor" },
+    ]);
+  });
+
+  test("leaves the supplied boards unchanged", async () => {
+    const home = makeBoard({
+      id: "home",
+      buttons: [{ id: "1", load_board: { id: "next", path: "old.obf" } }],
+    });
+    const next = makeBoard({ id: "next" });
+    const before = structuredClone([home, next]);
+
+    await createOBZ([home, next], "home");
+
+    expect([home, next]).toEqual(before);
+  });
+
+  test("keeps links valid across an extract-and-repackage round trip", async () => {
+    const original = await extractOBZ(
+      readFixtureArrayBuffer("lots-of-stuff.obz"),
+    );
+    const linked = makeBoard({
+      id: "start",
+      buttons: [
+        { id: "1", load_board: { id: "lots_of_stuff", path: "x.obf" } },
+      ],
+    });
+    const media = new Map(
+      [...original.resources].filter(
+        ([path]) => path !== "manifest.json" && !path.endsWith(".obf"),
+      ),
+    );
+
+    const repacked = await extractOBZ(
+      await createOBZ([linked, ...original.boards.values()], "start", media),
+    );
+
+    const target = linksOf(repacked.boards.get("start"))?.[0]?.path;
+    expect(target).toBe(repacked.manifest.paths.boards.lots_of_stuff);
+    expect(repacked.resources.has(target!)).toBe(true);
+  });
+});
+
 describe("Integration: createOBZ and extractOBZ", () => {
   test("round-trip handles multiple boards", async () => {
     const board1 = makeBoard({

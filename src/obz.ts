@@ -150,6 +150,11 @@ export function parseManifest(json: string): OBFManifest {
  * AAC, Ogg, Opus, MP4, WebM, by file extension) are stored without
  * recompression; everything else is deflated.
  *
+ * Boards are written to new paths, so every `load_board` whose `id` names a
+ * supplied board gets its `path` set to that board's file. Links without an
+ * `id`, or to boards outside the package, are left as they are. The supplied
+ * boards are not modified.
+ *
  * Every failure is an {@link OBFError}; branch on `info.code`.
  *
  * @param boards - The boards to include in the archive.
@@ -194,9 +199,12 @@ export async function createOBZ(
 
   const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
-  const boardPaths = Object.fromEntries(
+  const pathById = new Map(
     validBoards.map((board) => [board.id, boardPath(board.id)]),
   );
+  const boardPaths = Object.fromEntries(pathById);
+
+  pointLinksAtPackagedBoards(validBoards, pathById);
 
   const imagePaths = collectMediaPaths(validBoards, "images");
   const soundPaths = collectMediaPaths(validBoards, "sounds");
@@ -255,6 +263,32 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Set `load_board.path` on every link whose `id` names a packaged board.
+ *
+ * The spec has links inside an `.obz` point at the linked file by `path`, and
+ * readers such as CoughDrop's follow `path` before `id`. Repackaging moves
+ * boards to {@link boardPath}, so a path copied from the source archive would
+ * otherwise point at a file that no longer exists.
+ *
+ * Mutates `boards`, which must be the validated copies, not the caller's.
+ */
+function pointLinksAtPackagedBoards(
+  boards: OBFBoard[],
+  pathById: ReadonlyMap<string, string>,
+): void {
+  for (const board of boards) {
+    for (const button of board.buttons) {
+      const link = button.load_board;
+      const target = link?.id === undefined ? undefined : pathById.get(link.id);
+
+      if (link && target !== undefined) {
+        link.path = target;
+      }
+    }
+  }
+}
 
 /**
  * Derive a board's archive path from its ID.
