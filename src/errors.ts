@@ -38,13 +38,14 @@ export type OBFIssue = z.core.$ZodIssue;
  *
  * Switch on `code`; each variant carries the fields relevant to it. When a
  * failure wraps an underlying error it lives on the standard `error.cause`,
- * never duplicated here. The only optional field is `invalid-board`'s
- * `boardId`, absent when validation runs before a board `id` is known.
+ * never duplicated here. The optional fields say where a board came from and
+ * are set when known: `boardId` and `path` on `invalid-board`, and `path` on
+ * `not-json`.
  */
 export type OBFErrorInfo =
   // --- decoding (underlying parser/decompressor error on `error.cause`) ---
-  /** Input was not parseable JSON. */
-  | { code: "not-json"; source: "board" | "manifest" }
+  /** Input was not parseable JSON. `path` is set for a board inside an `.obz`. */
+  | { code: "not-json"; source: "board" | "manifest"; path?: string }
   /** An OBZ archive was expected, but the bytes are not a ZIP. */
   | { code: "not-zip" }
   /** A ZIP archive could not be decompressed. */
@@ -72,8 +73,16 @@ export type OBFErrorInfo =
       path: string;
     }
   // --- validation (underlying `ZodError` on `error.cause`) ---
-  /** A board failed schema validation. `boardId` is set when known. */
-  | { code: "invalid-board"; boardId?: string; issues: readonly OBFIssue[] }
+  /**
+   * A board failed schema validation. `boardId` is set when known, and `path`
+   * for a board inside an `.obz`.
+   */
+  | {
+      code: "invalid-board";
+      boardId?: string;
+      path?: string;
+      issues: readonly OBFIssue[];
+    }
   /** A manifest failed schema validation. */
   | { code: "invalid-manifest"; issues: readonly OBFIssue[] }
   // --- archive structure (reading an .obz) ---
@@ -139,7 +148,7 @@ export class OBFError extends Error {
 function formatOBFError(info: OBFErrorInfo): string {
   switch (info.code) {
     case "not-json":
-      return `Invalid ${info.source === "manifest" ? "OBZ manifest" : "OBF"}: not valid JSON`;
+      return `Invalid ${info.source === "manifest" ? "OBZ manifest" : "OBF"}${at(info.path)}: not valid JSON`;
     case "not-zip":
       return "Invalid OBZ: not a ZIP file";
     case "unreadable-zip":
@@ -152,7 +161,7 @@ function formatOBFError(info: OBFErrorInfo): string {
           : `Invalid OBZ: declared uncompressed size reached ${info.declaredBytes} bytes at "${info.path}", exceeding the ${info.maxBytes}-byte total limit`;
     case "invalid-board": {
       const subject = info.boardId ? `board "${info.boardId}"` : "board";
-      return `Invalid OBF ${subject}:\n${prettifyIssues(info.issues)}`;
+      return `Invalid OBF ${subject}${at(info.path)}:\n${prettifyIssues(info.issues)}`;
     }
     case "invalid-manifest":
       return `Invalid OBZ manifest:\n${prettifyIssues(info.issues)}`;
@@ -183,6 +192,11 @@ function formatOBFError(info: OBFErrorInfo): string {
     }
     /* v8 ignore stop */
   }
+}
+
+/** ` at "<path>"` when a path is known, otherwise nothing. */
+function at(path: string | undefined): string {
+  return path === undefined ? "" : ` at "${path}"`;
 }
 
 /** Render schema issues using Zod's pretty formatter. */

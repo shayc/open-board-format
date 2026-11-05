@@ -150,11 +150,11 @@ try {
 
 | Area           | `info.code`         | Additional fields                                  |
 | -------------- | ------------------- | -------------------------------------------------- |
-| Decoding       | `not-json`          | `source`                                           |
+| Decoding       | `not-json`          | `source`, `path?`                                  |
 | Decoding       | `not-zip`           | —                                                  |
 | Decoding       | `unreadable-zip`    | —                                                  |
 | Limits         | `archive-too-large` | `limit`, `path`, and fields for the exceeded limit |
-| Validation     | `invalid-board`     | `issues`, `boardId?`                               |
+| Validation     | `invalid-board`     | `issues`, `boardId?`, `path?`                      |
 | Validation     | `invalid-manifest`  | `issues`                                           |
 | OBZ extraction | `missing-manifest`  | —                                                  |
 | OBZ extraction | `missing-board`     | `boardId`, `path`                                  |
@@ -169,7 +169,7 @@ try {
 
 </details>
 
-Validation failures expose the underlying `ZodError` as `error.cause` and provide its flat issue list through `error.info.issues`.
+Validation failures expose the underlying `ZodError` as `error.cause` and provide its flat issue list through `error.info.issues`. When a board inside an OBZ fails, `boardId` and `path` say which one.
 
 `not-json`, `unreadable-zip`, and `zip-failed` expose the underlying parser or ZIP error as `error.cause`. An `internal` error indicates a library invariant failure and should be reported.
 

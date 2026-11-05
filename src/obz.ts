@@ -3,9 +3,9 @@
  */
 
 import { OBFError } from "./errors";
-import { parseOBF, stripBom } from "./obf";
+import { parseBoard, stripBom, validateBoard } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
-import { OBFBoardSchema, OBFManifestSchema } from "./schema";
+import { OBFManifestSchema } from "./schema";
 import type { BinaryInput, CompressionLevel, UnzipOptions } from "./zip";
 import { isZip, toArrayBuffer, unzip, zipWithLevels } from "./zip";
 
@@ -81,7 +81,9 @@ export async function loadOBZ(
  *   `"unreadable-zip"`, `"archive-too-large"` (a limit in `options.limits` is
  *   exceeded), `"missing-manifest"`, `"not-json"` or `"invalid-manifest"`
  *   (bad manifest), `"missing-board"`, `"board-id-mismatch"`, or
- *   `"invalid-board"` (a board fails validation).
+ *   `"invalid-board"` (a board fails validation). A board's `"not-json"` or
+ *   `"invalid-board"` carries its archive `path`, and `"invalid-board"` its
+ *   manifest `boardId`.
  * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export async function extractOBZ(
@@ -176,7 +178,7 @@ export async function createOBZ(
 ): Promise<Blob> {
   // Validate first, so every later step sees normalized boards (e.g. numeric
   // IDs already coerced to strings) and reports errors against them.
-  const validBoards = boards.map(validateBoardForPackaging);
+  const validBoards = boards.map((board) => validateBoard(board, {}));
 
   if (!validBoards.some((board) => board.id === rootBoardId)) {
     throw new OBFError({ code: "unknown-root", rootBoardId });
@@ -253,33 +255,6 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Validate a board passed to {@link createOBZ}, reporting its `id` when the
- * raw input has a usable one.
- */
-function validateBoardForPackaging(board: OBFBoard): OBFBoard {
-  const result = OBFBoardSchema.safeParse(board);
-
-  if (!result.success) {
-    const rawId: unknown = board.id;
-    const boardId =
-      typeof rawId === "string" || typeof rawId === "number"
-        ? String(rawId)
-        : undefined;
-
-    throw new OBFError(
-      {
-        code: "invalid-board",
-        ...(boardId !== undefined && { boardId }),
-        issues: result.error.issues,
-      },
-      { cause: result.error },
-    );
-  }
-
-  return result.data;
-}
 
 /**
  * Derive a board's archive path from its ID.
@@ -378,7 +353,7 @@ function extractBoards(
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
-    const board = parseOBF(boardJson);
+    const board = parseBoard(boardJson, { boardId: id, path });
 
     if (board.id !== id) {
       throw new OBFError({

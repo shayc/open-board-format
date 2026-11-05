@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { OBFErrorInfo } from "./errors";
 import { OBFError } from "./errors";
-import { validateOBF } from "./obf";
+import { parseOBF, validateOBF } from "./obf";
 import { parseManifest } from "./obz";
 import { expectOBFError } from "./test-utils";
 
@@ -145,6 +145,28 @@ describe("thrown OBFError.info carries its variant-specific fields", () => {
       expect(info.issues.length).toBeGreaterThan(0);
       expect(info.issues[0]).toHaveProperty("message");
     }
+  });
+
+  test("validateOBF → invalid-board reports the input's own id when usable", () => {
+    expect(expectOBFError(() => validateOBF({ id: 7 }))).toMatchObject({
+      code: "invalid-board",
+      boardId: "7",
+    });
+
+    const withoutId = expectOBFError(() => validateOBF({ id: "" }));
+    expect(withoutId).not.toHaveProperty("boardId");
+    expect(withoutId).not.toHaveProperty("path");
+
+    expect(expectOBFError(() => validateOBF(null))).not.toHaveProperty(
+      "boardId",
+    );
+  });
+
+  test("parseOBF → not-json has no path outside an archive", () => {
+    expect(expectOBFError(() => parseOBF("{"))).toEqual({
+      code: "not-json",
+      source: "board",
+    });
   });
 
   test("parseManifest → invalid-manifest carries issues", () => {

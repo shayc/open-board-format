@@ -1,5 +1,6 @@
 import { unzipSync } from "fflate";
 import { describe, expect, test } from "vitest";
+import { OBFError } from "./errors";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
 import {
@@ -105,6 +106,63 @@ describe("extractOBZ", () => {
       code: "missing-board",
       boardId: "missing",
       path: "boards/missing.obf",
+    });
+  });
+
+  describe("names the failing board", () => {
+    const archiveWith = (boardB: string) => {
+      const encoder = new TextEncoder();
+      const manifest = {
+        format: "open-board-0.1",
+        root: "boards/a.obf",
+        paths: { boards: { a: "boards/a.obf", b: "boards/b.obf" } },
+      };
+      return zip(
+        new Map([
+          ["manifest.json", encoder.encode(JSON.stringify(manifest))],
+          [
+            "boards/a.obf",
+            encoder.encode(JSON.stringify(makeBoard({ id: "a" }))),
+          ],
+          ["boards/b.obf", encoder.encode(boardB)],
+        ]),
+      );
+    };
+
+    const rejection = async (archive: Promise<Uint8Array>) => {
+      const error: unknown = await extractOBZ(await archive).then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+      expect(error).toBeInstanceOf(OBFError);
+      return error as OBFError;
+    };
+
+    test("when a board fails validation", async () => {
+      const invalid = {
+        ...makeBoard({ id: "b" }),
+        buttons: [{ id: "1", action: "oops" }],
+      };
+
+      const error = await rejection(archiveWith(JSON.stringify(invalid)));
+
+      expect(error.info).toMatchObject({
+        code: "invalid-board",
+        boardId: "b",
+        path: "boards/b.obf",
+      });
+      expect(error.message).toContain('board "b" at "boards/b.obf"');
+    });
+
+    test("when a board is not JSON", async () => {
+      const error = await rejection(archiveWith("{ not json"));
+
+      expect(error.info).toEqual({
+        code: "not-json",
+        source: "board",
+        path: "boards/b.obf",
+      });
+      expect(error.message).toContain('at "boards/b.obf"');
     });
   });
 

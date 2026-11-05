@@ -26,17 +26,38 @@ export function stripBom(text: string): string {
  *   malformed, or `"invalid-board"` if it fails schema validation.
  */
 export function parseOBF(json: string): OBFBoard {
-  const sanitized = stripBom(json);
+  return parseBoard(json, {});
+}
 
+/**
+ * Where a board came from, reported on its `not-json` and `invalid-board`
+ * errors so a failure inside a large package can be found. Internal.
+ */
+export interface BoardContext {
+  /** The board's ID, when known before validation (e.g. its manifest key). */
+  boardId?: string;
+  /** The board's path inside an `.obz` archive. */
+  path?: string;
+}
+
+/** {@link parseOBF} that reports `context` on failure. Internal. */
+export function parseBoard(json: string, context: BoardContext): OBFBoard {
   let rawBoard: unknown;
 
   try {
-    rawBoard = JSON.parse(sanitized) as unknown;
+    rawBoard = JSON.parse(stripBom(json)) as unknown;
   } catch (error) {
-    throw new OBFError({ code: "not-json", source: "board" }, { cause: error });
+    throw new OBFError(
+      {
+        code: "not-json",
+        source: "board",
+        ...(context.path !== undefined && { path: context.path }),
+      },
+      { cause: error },
+    );
   }
 
-  return validateOBF(rawBoard);
+  return validateBoard(rawBoard, context);
 }
 
 /**
@@ -62,19 +83,48 @@ export async function loadOBF(file: File): Promise<OBFBoard> {
  * @returns The validated board object.
  *
  * @throws {@link OBFError} with `info.code` `"invalid-board"` if the value fails
- *   schema validation. `info.issues` holds the underlying Zod issues.
+ *   schema validation. `info.issues` holds the underlying Zod issues, and
+ *   `info.boardId` the value's `id` when it is a non-empty string or number.
  */
 export function validateOBF(data: unknown): OBFBoard {
+  return validateBoard(data, {});
+}
+
+/**
+ * {@link validateOBF} that reports `context` on failure. Internal. Without a
+ * `context.boardId`, the value's own `id` is reported when it is usable.
+ */
+export function validateBoard(data: unknown, context: BoardContext): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);
 
-  if (!result.success) {
-    throw new OBFError(
-      { code: "invalid-board", issues: result.error.issues },
-      { cause: result.error },
-    );
+  if (result.success) {
+    return result.data;
   }
 
-  return result.data;
+  const boardId = context.boardId ?? rawBoardId(data);
+
+  throw new OBFError(
+    {
+      code: "invalid-board",
+      ...(boardId !== undefined && { boardId }),
+      ...(context.path !== undefined && { path: context.path }),
+      issues: result.error.issues,
+    },
+    { cause: result.error },
+  );
+}
+
+/** The `id` of an unvalidated board, if it is a non-empty string or number. */
+function rawBoardId(data: unknown): string | undefined {
+  if (typeof data !== "object" || data === null) {
+    return undefined;
+  }
+
+  const id: unknown = (data as { id?: unknown }).id;
+  const text =
+    typeof id === "string" || typeof id === "number" ? String(id) : "";
+
+  return text === "" ? undefined : text;
 }
 
 /**
