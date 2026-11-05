@@ -169,16 +169,20 @@ type OBFMediaShape = {
   /** Path to the media file within an `.obz` package. */
   path: z.ZodOptional<z.ZodString>;
   /**
-   * URL of an API endpoint for fetching the media programmatically —
-   * not a `data:` URI (that is `data`). Must be a valid URL; an empty string
-   * parses to `undefined`.
+   * URL of an API endpoint that returns information about the media resource,
+   * which may require authentication. Not a source of the media itself (see
+   * `data`, `path`, and `url`). Must be a valid URL; an empty string parses
+   * to `undefined`.
    */
   data_url: typeof OBFOptionalUrlSchema;
   /** URL to the media resource. Must be a valid URL; an empty string parses to `undefined`. */
   url: typeof OBFOptionalUrlSchema;
   /** MIME type of the media, e.g., `image/png`, `audio/mpeg`. */
   content_type: z.ZodOptional<z.ZodString>;
-  /** Licensing information for the media. */
+  /**
+   * Licensing information for the media. Without one, treat the media as
+   * private, all rights reserved.
+   */
   license: z.ZodOptional<typeof OBFLicenseSchema>;
 };
 
@@ -285,9 +289,9 @@ type OBFLoadBoardShape = {
   /** Name of the board to load. */
   name: z.ZodOptional<z.ZodString>;
   /**
-   * URL of an API endpoint for fetching the board programmatically —
-   * not a `data:` URI. Must be a valid URL; an empty string parses to
-   * `undefined`.
+   * URL of an API endpoint that returns data about the board, which may
+   * require authentication. Not a `data:` URI. Must be a valid URL; an empty
+   * string parses to `undefined`.
    */
   data_url: typeof OBFOptionalUrlSchema;
   /** URL to access the board via a web browser. Must be a valid URL; an empty string parses to `undefined`. */
@@ -314,7 +318,10 @@ type OBFButtonShape = {
   id: typeof OBFIDSchema;
   /** Label text displayed on the button. */
   label: z.ZodOptional<z.ZodString>;
-  /** Alternative text for vocalization when the button is activated. */
+  /**
+   * Text to speak when the button is activated, if different from `label`.
+   * When unset, the `label` is spoken.
+   */
   vocalization: z.ZodOptional<z.ZodString>;
   /**
    * Identifier of the image associated with the button. A string, or a
@@ -348,23 +355,31 @@ type OBFButtonShape = {
    */
   border_color: z.ZodOptional<z.ZodString>;
   /**
-   * Vertical position for absolute positioning, from 0 to 1. Set all of
-   * `top`, `left`, `width`, and `height`, or none.
+   * Distance from the top for absolute positioning, as a fraction of the
+   * screen height from 0 to 1. Set all of `top`, `left`, `width`, and
+   * `height`, or none. The OBF spec expects all four on every button of the
+   * board; this schema checks each button on its own.
    */
   top: z.ZodOptional<z.ZodNumber>;
   /**
-   * Horizontal position for absolute positioning, from 0 to 1. Set all of
-   * `top`, `left`, `width`, and `height`, or none.
+   * Distance from the left for absolute positioning, as a fraction of the
+   * screen width from 0 to 1. Set all of `top`, `left`, `width`, and
+   * `height`, or none. The OBF spec expects all four on every button of the
+   * board; this schema checks each button on its own.
    */
   left: z.ZodOptional<z.ZodNumber>;
   /**
-   * Width of the button for absolute positioning, from 0 to 1. Set all of
-   * `top`, `left`, `width`, and `height`, or none.
+   * Width of the button for absolute positioning, as a fraction of the
+   * screen width from 0 to 1. Set all of `top`, `left`, `width`, and
+   * `height`, or none. The OBF spec expects all four on every button of the
+   * board; this schema checks each button on its own.
    */
   width: z.ZodOptional<z.ZodNumber>;
   /**
-   * Height of the button for absolute positioning, from 0 to 1. Set all of
-   * `top`, `left`, `width`, and `height`, or none.
+   * Height of the button for absolute positioning, as a fraction of the
+   * screen height from 0 to 1. Set all of `top`, `left`, `width`, and
+   * `height`, or none. The OBF spec expects all four on every button of the
+   * board; this schema checks each button on its own.
    */
   height: z.ZodOptional<z.ZodNumber>;
 };
@@ -414,9 +429,15 @@ const MAX_GRID_COLUMNS = 100;
 
 /** Fields of {@link OBFGridSchema}. */
 type OBFGridShape = {
-  /** Number of rows in the grid: an integer from 1 to 100. Must equal the length of `order`. */
+  /**
+   * Number of rows in the grid: an integer from 1 to 100 (a limit of this
+   * library, not the OBF spec). Must equal the length of `order`.
+   */
   rows: z.ZodNumber;
-  /** Number of columns in the grid: an integer from 1 to 100. Must equal the length of every row in `order`. */
+  /**
+   * Number of columns in the grid: an integer from 1 to 100 (a limit of this
+   * library, not the OBF spec). Must equal the length of every row in `order`.
+   */
   columns: z.ZodNumber;
   /**
    * Button IDs by row; `null` marks an empty cell. Holds `rows` rows of
@@ -465,7 +486,10 @@ type OBFBoardShape = {
   images: z.ZodOptional<z.ZodArray<typeof OBFImageSchema>>;
   /** List of sounds used in the board. */
   sounds: z.ZodOptional<z.ZodArray<typeof OBFSoundSchema>>;
-  /** Licensing information for the board. */
+  /**
+   * Licensing information for the board. Without one, treat the board as
+   * private, all rights reserved.
+   */
   license: z.ZodOptional<typeof OBFLicenseSchema>;
   /** String translations for multiple locales. */
   strings: z.ZodOptional<typeof OBFStringsSchema>;
