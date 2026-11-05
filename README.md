@@ -63,15 +63,13 @@ It returns a [`ParsedOBZ`](#types-and-schemas) with the validated manifest, ever
 
 ### Create an OBZ archive
 
-Given a board and its media resources:
-
 ```ts
 import { createOBZ } from "@shayc/open-board-format";
 
 const obz = await createOBZ([board], board.id, resources);
 ```
 
-The second argument names the entry-point board. Before packaging, `createOBZ` validates every board and rejects duplicate IDs, an unknown root, conflicting media paths, missing media resources, and resources that would overwrite generated files. It then generates the manifest and writes boards to `boards/<encoded-id>.obf`.
+The second argument names the entry-point board. Before packaging, `createOBZ` validates every board and its media references, then generates the manifest and writes boards to `boards/<encoded-id>.obf`.
 
 ### Validate a board
 
@@ -81,7 +79,7 @@ import { validateOBF } from "@shayc/open-board-format";
 const board = validateOBF(value);
 ```
 
-`validateOBF` returns a [normalized](#validation-details) copy of the board or throws an `OBFError`. Every data model also has a matching `…Schema` export, such as `OBFBoardSchema`, for composing your own checks with Zod.
+`validateOBF` returns a [normalized](#validation-details) copy of the board or throws an `OBFError`.
 
 ## API reference
 
@@ -208,8 +206,6 @@ Validation is not a complete OBF conformance or graph-integrity check. It does n
 - A consistent positioning mode across every button on a board.
 - BCP 47 locale syntax, color syntax, MIME correctness, or safe HTML.
 - During extraction, the existence of manifest-declared media files or their agreement with board media records.
-
-Add application-specific checks after parsing when those guarantees matter.
 
 ## Security
 
