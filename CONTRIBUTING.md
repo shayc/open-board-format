@@ -17,8 +17,8 @@ npm run lint        # oxlint
 npm run format      # oxfmt
 npm run typecheck   # type-check only (noEmit via tsconfig)
 npm test            # vitest run
-npm run build       # tsdown → dist/
-npm run check:dts   # after build: field docs survive into dist/index.d.mts
+npm run build       # tsdown → dist/, then check:dts
+npm run check:dts   # field docs survive into dist/index.d.mts (runs after every build)
 ```
 
 ## Pull requests

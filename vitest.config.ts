@@ -6,7 +6,11 @@ export default defineConfig({
     unstubGlobals: true,
     coverage: {
       include: ["src/**/*.ts"],
-      exclude: [...coverageConfigDefaults.exclude, "src/test-utils.ts"],
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        "src/test-utils.ts",
+        "src/**/*.test-d.ts",
+      ],
       thresholds: {
         statements: 95,
         branches: 80,

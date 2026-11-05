@@ -10,7 +10,8 @@
  * when it finds no schemas or no shape fields at all, so a change in the
  * declaration format cannot make it pass by checking nothing.
  *
- * Run after `npm run build`.
+ * Runs as npm's `postbuild` script, so every `npm run build` checks it,
+ * including the build `prepublishOnly` runs before a release.
  */
 
 import { readFileSync } from "node:fs";
@@ -92,9 +93,9 @@ if (errors.length > 0) {
   console.error(
     `check:dts failed for dist/index.d.mts:\n  ${errors.join("\n  ")}`,
   );
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  console.log(
+    `check:dts: ${schemas} object schemas, ${shapes.size} shape types, and ${fields} fields keep their field docs.`,
+  );
 }
-
-console.log(
-  `check:dts: ${schemas} object schemas, ${shapes.size} shape types, and ${fields} fields keep their field docs.`,
-);

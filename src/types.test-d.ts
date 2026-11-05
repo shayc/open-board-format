@@ -8,28 +8,27 @@
  * compiler only checks the runtime schemas against them in one direction, so
  * this file is what pins the shape types themselves.
  *
- * The assertions are checked by `tsc`; at runtime they are no-ops.
+ * `npm run typecheck` checks this file. As a `*.test-d.ts` file, Vitest does
+ * not run it.
  */
 
 import { describe, expectTypeOf, test } from "vitest";
 import type { z } from "zod";
 import type {
   OBFBoard,
+  OBFBoardSchema,
   OBFButton,
+  OBFButtonSchema,
   OBFGrid,
+  OBFGridSchema,
   OBFImage,
+  OBFImageSchema,
   OBFLicense,
   OBFLoadBoard,
   OBFManifest,
   OBFMedia,
   OBFSound,
   OBFSymbolInfo,
-} from "./schema";
-import type {
-  OBFBoardSchema,
-  OBFButtonSchema,
-  OBFGridSchema,
-  OBFImageSchema,
 } from "./schema";
 
 type Loose = { [k: string]: unknown };
@@ -117,12 +116,12 @@ type ExpectedManifest = Loose & {
   };
 };
 
-/** Flattens an intersection so it compares equal to a single object type. */
-type Flat<T> = T extends object
-  ? T extends readonly unknown[]
-    ? { [K in keyof T]: Flat<T[K]> }
-    : { [K in keyof T]: Flat<T[K]> }
-  : T;
+/**
+ * Flattens an intersection so it compares equal to a single object type.
+ * Arrays and tuples keep their shape: a mapped type over a type parameter
+ * maps their elements.
+ */
+type Flat<T> = T extends object ? { [K in keyof T]: Flat<T[K]> } : T;
 
 describe("public types", () => {
   test("object types match the documented contract", () => {

@@ -34,6 +34,7 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "postbuild": "npm run check:dts",
     "check:dts": "node scripts/check-dts.mjs",
     "dev": "tsdown --watch",
     "lint": "oxlint",
