@@ -1,10 +1,33 @@
 /**
  * Zod schemas for the Open Board Format (OBF) data model.
  *
+ * Every object schema is built with {@link obfObject} from a named shape type
+ * (`OBFButtonShape`, …) that holds its field docs. TypeScript drops JSDoc from
+ * object literals when it emits declarations, so the shape types are what
+ * carry field docs into the published types and consumers' editor hovers.
+ * Document fields on the shape type, not on the schema literal.
+ *
  * Official OBF specification: https://www.openboardformat.org/docs
  */
 
 import { z } from "zod";
+
+/**
+ * Builds a loose object schema whose declared type is exactly `Shape`, so the
+ * JSDoc on `Shape`'s fields survives declaration emit.
+ *
+ * The type argument is required: omitting it falls back to `never`, which no
+ * shape satisfies. `NoInfer` makes TypeScript check the shape literal against
+ * `Shape` instead of inferring from it, so a missing, extra, or wrongly typed
+ * field is a compile error at that field.
+ */
+function obfObject<Shape extends z.core.$ZodLooseShape = never>(
+  shape: NoInfer<Shape>,
+): z.ZodObject<Shape, z.core.$loose> {
+  // `z.looseObject` returns `ZodObject<Writeable<Shape>>`, which only strips
+  // `readonly` modifiers. Shape types declare none, so this cast is exact.
+  return z.looseObject(shape) as z.ZodObject<Shape, z.core.$loose>;
+}
 
 /** Optional URL that treats empty strings as undefined. */
 const OBFOptionalUrlSchema = z
@@ -98,24 +121,56 @@ export const OBFButtonActionSchema = z.union([
 /** Union of spelling and specialty actions that a button can trigger. See {@link OBFButtonActionSchema}. */
 export type OBFButtonAction = z.infer<typeof OBFButtonActionSchema>;
 
-/** License terms and attribution for a resource. */
-export const OBFLicenseSchema = z.looseObject({
+/** Fields of {@link OBFLicenseSchema}. */
+type OBFLicenseShape = {
   /** Type of the license, e.g., `CC-BY-SA`. */
-  type: z.string(),
-  /** URL to the license terms. */
-  copyright_notice_url: OBFOptionalUrlSchema,
-  /** Source URL of the resource. */
-  source_url: OBFOptionalUrlSchema,
+  type: z.ZodString;
+  /** URL to the license terms. Must be a valid URL; an empty string parses to `undefined`. */
+  copyright_notice_url: typeof OBFOptionalUrlSchema;
+  /** Source URL of the resource. Must be a valid URL; an empty string parses to `undefined`. */
+  source_url: typeof OBFOptionalUrlSchema;
   /** Name of the author. */
+  author_name: z.ZodOptional<z.ZodString>;
+  /** URL of the author's webpage. Must be a valid URL; an empty string parses to `undefined`. */
+  author_url: typeof OBFOptionalUrlSchema;
+  /** Email address of the author. Must be a valid email address; an empty string parses to `undefined`. */
+  author_email: typeof OBFOptionalEmailSchema;
+};
+
+/** License terms and attribution for a resource. */
+export const OBFLicenseSchema = obfObject<OBFLicenseShape>({
+  type: z.string(),
+  copyright_notice_url: OBFOptionalUrlSchema,
+  source_url: OBFOptionalUrlSchema,
   author_name: z.string().optional(),
-  /** URL of the author's webpage. */
   author_url: OBFOptionalUrlSchema,
-  /** Email address of the author. */
   author_email: OBFOptionalEmailSchema,
 });
 
 /** License terms and attribution for a resource. See {@link OBFLicenseSchema}. */
-export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
+export interface OBFLicense extends z.infer<typeof OBFLicenseSchema> {}
+
+/** Fields of {@link OBFMediaSchema}. */
+type OBFMediaShape = {
+  /** Unique identifier for the media resource. A non-empty string, or a number converted to a string. */
+  id: typeof OBFIDSchema;
+  /** Media data inlined as a `data:` URI. */
+  data: z.ZodOptional<z.ZodString>;
+  /** Path to the media file within an `.obz` package. */
+  path: z.ZodOptional<z.ZodString>;
+  /**
+   * URL of an API endpoint for fetching the media programmatically —
+   * not a `data:` URI (that is `data`). Must be a valid URL; an empty string
+   * parses to `undefined`.
+   */
+  data_url: typeof OBFOptionalUrlSchema;
+  /** URL to the media resource. Must be a valid URL; an empty string parses to `undefined`. */
+  url: typeof OBFOptionalUrlSchema;
+  /** MIME type of the media, e.g., `image/png`, `audio/mpeg`. */
+  content_type: z.ZodOptional<z.ZodString>;
+  /** Licensing information for the media. */
+  license: z.ZodOptional<typeof OBFLicenseSchema>;
+};
 
 /**
  * Common properties for media resources (images and sounds).
@@ -130,39 +185,56 @@ export type OBFLicense = z.infer<typeof OBFLicenseSchema>;
  * retrieving information about the resource, not an alternative source of
  * the media bytes.
  */
-export const OBFMediaSchema = z.looseObject({
-  /** Unique identifier for the media resource. */
+export const OBFMediaSchema = obfObject<OBFMediaShape>({
   id: OBFIDSchema,
-  /** Media data inlined as a `data:` URI. */
   data: z.string().optional(),
-  /** Path to the media file within an `.obz` package. */
   path: z.string().optional(),
-  /**
-   * URL of an API endpoint for fetching the media programmatically —
-   * not a `data:` URI (that is `data`).
-   */
   data_url: OBFOptionalUrlSchema,
-  /** URL to the media resource. */
   url: OBFOptionalUrlSchema,
-  /** MIME type of the media, e.g., `image/png`, `audio/mpeg`. */
   content_type: z.string().optional(),
-  /** Licensing information for the media. */
   license: OBFLicenseSchema.optional(),
 });
 
 /** Common properties for media resources (images and sounds). See {@link OBFMediaSchema}. */
-export type OBFMedia = z.infer<typeof OBFMediaSchema>;
+export interface OBFMedia extends z.infer<typeof OBFMediaSchema> {}
+
+/** Fields of {@link OBFSymbolInfoSchema}. */
+type OBFSymbolInfoShape = {
+  /** Name of the symbol set, e.g., `symbolstix`. */
+  set: z.ZodString;
+  /** Filename of the symbol within the set. */
+  filename: z.ZodString;
+};
 
 /** Reference to a symbol in a proprietary symbol set (e.g., SymbolStix). */
-export const OBFSymbolInfoSchema = z.looseObject({
-  /** Name of the symbol set, e.g., `symbolstix`. */
+export const OBFSymbolInfoSchema = obfObject<OBFSymbolInfoShape>({
   set: z.string(),
-  /** Filename of the symbol within the set. */
   filename: z.string(),
 });
 
 /** Reference to a symbol in a proprietary symbol set. See {@link OBFSymbolInfoSchema}. */
-export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
+export interface OBFSymbolInfo extends z.infer<typeof OBFSymbolInfoSchema> {}
+
+/** Fields that {@link OBFImageSchema} adds to {@link OBFMediaSchema}. */
+type OBFImageOwnShape = {
+  /** Information about a symbol from a proprietary symbol set. */
+  symbol: z.ZodOptional<typeof OBFSymbolInfoSchema>;
+  /** Width of the image in pixels. */
+  width: z.ZodOptional<z.ZodNumber>;
+  /** Height of the image in pixels. */
+  height: z.ZodOptional<z.ZodNumber>;
+};
+
+/**
+ * Fields of {@link OBFImageSchema}: the media fields plus its own, merged
+ * into one object type as Zod's `.extend()` does. The mapped type keeps each
+ * field's JSDoc. It is written out here rather than as a generic helper so
+ * that declarations keep the `OBFImageShape` name.
+ */
+type OBFImageShape = {
+  [K in keyof (OBFMediaShape & OBFImageOwnShape)]: (OBFMediaShape &
+    OBFImageOwnShape)[K];
+};
 
 /**
  * Image resource, extending {@link OBFMediaSchema} with optional
@@ -175,17 +247,15 @@ export type OBFSymbolInfo = z.infer<typeof OBFSymbolInfoSchema>;
  * 3. `url`
  * 4. `symbol`
  */
-export const OBFImageSchema = OBFMediaSchema.extend({
-  /** Information about a symbol from a proprietary symbol set. */
+export const OBFImageSchema = obfObject<OBFImageShape>({
+  ...OBFMediaSchema.shape,
   symbol: OBFSymbolInfoSchema.optional(),
-  /** Width of the image in pixels. */
   width: z.number().optional(),
-  /** Height of the image in pixels. */
   height: z.number().optional(),
 });
 
 /** Image resource with optional symbol and dimension properties. See {@link OBFImageSchema}. */
-export type OBFImage = z.infer<typeof OBFImageSchema>;
+export interface OBFImage extends z.infer<typeof OBFImageSchema> {}
 
 /**
  * Audio resource. Identical to {@link OBFMediaSchema} — no additional properties.
@@ -193,88 +263,135 @@ export type OBFImage = z.infer<typeof OBFImageSchema>;
 export const OBFSoundSchema = OBFMediaSchema;
 
 /** Audio resource, identical to {@link OBFMediaSchema}. See {@link OBFSoundSchema}. */
-export type OBFSound = z.infer<typeof OBFSoundSchema>;
+export interface OBFSound extends z.infer<typeof OBFSoundSchema> {}
 
-/** Reference to another board, resolved by ID, path, or URL. */
-export const OBFLoadBoardSchema = z.looseObject({
-  /** Unique identifier of the board to load. */
-  id: OBFOptionalIDSchema,
+/** Fields of {@link OBFLoadBoardSchema}. */
+type OBFLoadBoardShape = {
+  /**
+   * Unique identifier of the board to load. A string, or a number converted
+   * to a string; an empty string parses to `undefined`.
+   */
+  id: typeof OBFOptionalIDSchema;
   /** Name of the board to load. */
-  name: z.string().optional(),
+  name: z.ZodOptional<z.ZodString>;
   /**
    * URL of an API endpoint for fetching the board programmatically —
-   * not a `data:` URI.
+   * not a `data:` URI. Must be a valid URL; an empty string parses to
+   * `undefined`.
    */
-  data_url: OBFOptionalUrlSchema,
-  /** URL to access the board via a web browser. */
-  url: OBFOptionalUrlSchema,
+  data_url: typeof OBFOptionalUrlSchema;
+  /** URL to access the board via a web browser. Must be a valid URL; an empty string parses to `undefined`. */
+  url: typeof OBFOptionalUrlSchema;
   /** Path to the board within an `.obz` package. */
+  path: z.ZodOptional<z.ZodString>;
+};
+
+/** Reference to another board, resolved by ID, path, or URL. */
+export const OBFLoadBoardSchema = obfObject<OBFLoadBoardShape>({
+  id: OBFOptionalIDSchema,
+  name: z.string().optional(),
+  data_url: OBFOptionalUrlSchema,
+  url: OBFOptionalUrlSchema,
   path: z.string().optional(),
 });
 
 /** Reference to another board, resolved by ID, path, or URL. See {@link OBFLoadBoardSchema}. */
-export type OBFLoadBoard = z.infer<typeof OBFLoadBoardSchema>;
+export interface OBFLoadBoard extends z.infer<typeof OBFLoadBoardSchema> {}
+
+/** Fields of {@link OBFButtonSchema}. */
+type OBFButtonShape = {
+  /** Unique identifier for the button. A non-empty string, or a number converted to a string. */
+  id: typeof OBFIDSchema;
+  /** Label text displayed on the button. */
+  label: z.ZodOptional<z.ZodString>;
+  /** Alternative text for vocalization when the button is activated. */
+  vocalization: z.ZodOptional<z.ZodString>;
+  /**
+   * Identifier of the image associated with the button. A string, or a
+   * number converted to a string; an empty string parses to `undefined`.
+   */
+  image_id: typeof OBFOptionalIDSchema;
+  /**
+   * Identifier of the sound associated with the button. A string, or a
+   * number converted to a string; an empty string parses to `undefined`.
+   */
+  sound_id: typeof OBFOptionalIDSchema;
+  /**
+   * Action triggered by the button. When `actions` is also set, this is
+   * the single-action fallback for apps that support one action per button.
+   */
+  action: z.ZodOptional<typeof OBFButtonActionSchema>;
+  /**
+   * Multiple actions executed in order. Apps that support it should
+   * prefer this over the single `action` fallback.
+   */
+  actions: z.ZodOptional<z.ZodArray<typeof OBFButtonActionSchema>>;
+  /** Information to load another board when this button is activated. */
+  load_board: z.ZodOptional<typeof OBFLoadBoardSchema>;
+  /**
+   * Background color, typically an `rgb()` or `rgba()` value. Accepts any
+   * string.
+   */
+  background_color: z.ZodOptional<z.ZodString>;
+  /**
+   * Border color, typically an `rgb()` or `rgba()` value. Accepts any string.
+   */
+  border_color: z.ZodOptional<z.ZodString>;
+  /**
+   * Vertical position for absolute positioning, from 0 to 1. Set all of
+   * `top`, `left`, `width`, and `height`, or none.
+   */
+  top: z.ZodOptional<z.ZodNumber>;
+  /**
+   * Horizontal position for absolute positioning, from 0 to 1. Set all of
+   * `top`, `left`, `width`, and `height`, or none.
+   */
+  left: z.ZodOptional<z.ZodNumber>;
+  /**
+   * Width of the button for absolute positioning, from 0 to 1. Set all of
+   * `top`, `left`, `width`, and `height`, or none.
+   */
+  width: z.ZodOptional<z.ZodNumber>;
+  /**
+   * Height of the button for absolute positioning, from 0 to 1. Set all of
+   * `top`, `left`, `width`, and `height`, or none.
+   */
+  height: z.ZodOptional<z.ZodNumber>;
+};
 
 /**
  * Interactive board element, optionally linked to images, sounds, and actions.
  */
-export const OBFButtonSchema = z
-  .looseObject({
-    /** Unique identifier for the button. */
-    id: OBFIDSchema,
-    /** Label text displayed on the button. */
-    label: z.string().optional(),
-    /** Alternative text for vocalization when the button is activated. */
-    vocalization: z.string().optional(),
-    /** Identifier of the image associated with the button. */
-    image_id: OBFOptionalIDSchema,
-    /** Identifier of the sound associated with the button. */
-    sound_id: OBFOptionalIDSchema,
-    /**
-     * Action triggered by the button. When `actions` is also set, this is
-     * the single-action fallback for apps that support one action per button.
-     */
-    action: OBFButtonActionSchema.optional(),
-    /**
-     * Multiple actions executed in order. Apps that support it should
-     * prefer this over the single `action` fallback.
-     */
-    actions: z.array(OBFButtonActionSchema).optional(),
-    /** Information to load another board when this button is activated. */
-    load_board: OBFLoadBoardSchema.optional(),
-    /**
-     * Background color, typically an `rgb()` or `rgba()` value. Accepts any
-     * string.
-     */
-    background_color: z.string().optional(),
-    /**
-     * Border color, typically an `rgb()` or `rgba()` value. Accepts any string.
-     */
-    border_color: z.string().optional(),
-    /** Vertical position for absolute positioning, from 0 to 1. */
-    top: z.number().min(0).max(1).optional(),
-    /** Horizontal position for absolute positioning, from 0 to 1. */
-    left: z.number().min(0).max(1).optional(),
-    /** Width of the button for absolute positioning, from 0 to 1. */
-    width: z.number().min(0).max(1).optional(),
-    /** Height of the button for absolute positioning, from 0 to 1. */
-    height: z.number().min(0).max(1).optional(),
-  })
-  .refine(
-    (b) => {
-      const set = [b.top, b.left, b.width, b.height].filter(
-        (v) => v !== undefined,
-      );
-      return set.length === 0 || set.length === 4;
-    },
-    {
-      message:
-        "Absolute positioning requires all of top, left, width, and height (or none)",
-    },
-  );
+export const OBFButtonSchema = obfObject<OBFButtonShape>({
+  id: OBFIDSchema,
+  label: z.string().optional(),
+  vocalization: z.string().optional(),
+  image_id: OBFOptionalIDSchema,
+  sound_id: OBFOptionalIDSchema,
+  action: OBFButtonActionSchema.optional(),
+  actions: z.array(OBFButtonActionSchema).optional(),
+  load_board: OBFLoadBoardSchema.optional(),
+  background_color: z.string().optional(),
+  border_color: z.string().optional(),
+  top: z.number().min(0).max(1).optional(),
+  left: z.number().min(0).max(1).optional(),
+  width: z.number().min(0).max(1).optional(),
+  height: z.number().min(0).max(1).optional(),
+}).refine(
+  (b) => {
+    const set = [b.top, b.left, b.width, b.height].filter(
+      (v) => v !== undefined,
+    );
+    return set.length === 0 || set.length === 4;
+  },
+  {
+    message:
+      "Absolute positioning requires all of top, left, width, and height (or none)",
+  },
+);
 
 /** Interactive board element, optionally linked to images, sounds, and actions. See {@link OBFButtonSchema}. */
-export type OBFButton = z.infer<typeof OBFButtonSchema>;
+export interface OBFButton extends z.infer<typeof OBFButtonSchema> {}
 
 /**
  * Upper bound on grid dimensions. A board only needs these to lay out cells;
@@ -285,16 +402,27 @@ export type OBFButton = z.infer<typeof OBFButtonSchema>;
 const MAX_GRID_ROWS = 100;
 const MAX_GRID_COLUMNS = 100;
 
+/** Fields of {@link OBFGridSchema}. */
+type OBFGridShape = {
+  /** Number of rows in the grid: an integer from 1 to 100. Must equal the length of `order`. */
+  rows: z.ZodNumber;
+  /** Number of columns in the grid: an integer from 1 to 100. Must equal the length of every row in `order`. */
+  columns: z.ZodNumber;
+  /**
+   * Button IDs by row; `null` marks an empty cell. Holds `rows` rows of
+   * `columns` cells each. Numeric IDs are converted to strings.
+   */
+  order: z.ZodArray<
+    z.ZodArray<z.ZodUnion<readonly [typeof OBFIDSchema, z.ZodNull]>>
+  >;
+};
+
 /** Row-and-column layout that arranges buttons by their IDs. */
-export const OBFGridSchema = z
-  .looseObject({
-    /** Number of rows in the grid. */
-    rows: z.number().int().min(1).max(MAX_GRID_ROWS),
-    /** Number of columns in the grid. */
-    columns: z.number().int().min(1).max(MAX_GRID_COLUMNS),
-    /** Button IDs by row; `null` marks an empty cell. */
-    order: z.array(z.array(z.union([OBFIDSchema, z.null()]))),
-  })
+export const OBFGridSchema = obfObject<OBFGridShape>({
+  rows: z.number().int().min(1).max(MAX_GRID_ROWS),
+  columns: z.number().int().min(1).max(MAX_GRID_COLUMNS),
+  order: z.array(z.array(z.union([OBFIDSchema, z.null()]))),
+})
   .refine((g) => g.order.length === g.rows, {
     message: "Grid order length must match rows",
   })
@@ -303,64 +431,92 @@ export const OBFGridSchema = z
   });
 
 /** Row-and-column layout that arranges buttons by their IDs. See {@link OBFGridSchema}. */
-export type OBFGrid = z.infer<typeof OBFGridSchema>;
+export interface OBFGrid extends z.infer<typeof OBFGridSchema> {}
+
+/** Fields of {@link OBFBoardSchema}. */
+type OBFBoardShape = {
+  /** Format version of the Open Board Format, e.g., `open-board-0.1`. Must start with `open-board-`. */
+  format: typeof OBFFormatVersionSchema;
+  /** Unique identifier for the board. A non-empty string, or a number converted to a string. */
+  id: typeof OBFIDSchema;
+  /** Locale identifier, typically a BCP 47 language tag such as `en` or `en-US`. Accepts any string. */
+  locale: z.ZodOptional<typeof OBFLocaleCodeSchema>;
+  /** List of buttons on the board. */
+  buttons: z.ZodArray<typeof OBFButtonSchema>;
+  /** URL where the board can be accessed or downloaded. Must be a valid URL; an empty string parses to `undefined`. */
+  url: typeof OBFOptionalUrlSchema;
+  /** Name of the board. */
+  name: z.ZodOptional<z.ZodString>;
+  /** Description of the board in HTML format. */
+  description_html: z.ZodOptional<z.ZodString>;
+  /** Grid layout information for arranging buttons. */
+  grid: typeof OBFGridSchema;
+  /** List of images used in the board. */
+  images: z.ZodOptional<z.ZodArray<typeof OBFImageSchema>>;
+  /** List of sounds used in the board. */
+  sounds: z.ZodOptional<z.ZodArray<typeof OBFSoundSchema>>;
+  /** Licensing information for the board. */
+  license: z.ZodOptional<typeof OBFLicenseSchema>;
+  /** String translations for multiple locales. */
+  strings: z.ZodOptional<typeof OBFStringsSchema>;
+};
 
 /**
  * Root object of an `.obf` file: the complete definition of a single communication board.
  */
-export const OBFBoardSchema = z.looseObject({
-  /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
+export const OBFBoardSchema = obfObject<OBFBoardShape>({
   format: OBFFormatVersionSchema,
-  /** Unique identifier for the board. */
   id: OBFIDSchema,
-  /** Locale identifier, typically a BCP 47 language tag such as `en` or `en-US`. */
   locale: OBFLocaleCodeSchema.optional(),
-  /** List of buttons on the board. */
   buttons: z.array(OBFButtonSchema),
-  /** URL where the board can be accessed or downloaded. */
   url: OBFOptionalUrlSchema,
-  /** Name of the board. */
   name: z.string().optional(),
-  /** Description of the board in HTML format. */
   description_html: z.string().optional(),
-  /** Grid layout information for arranging buttons. */
   grid: OBFGridSchema,
-  /** List of images used in the board. */
   images: z.array(OBFImageSchema).optional(),
-  /** List of sounds used in the board. */
   sounds: z.array(OBFSoundSchema).optional(),
-  /** Licensing information for the board. */
   license: OBFLicenseSchema.optional(),
-  /** String translations for multiple locales. */
   strings: OBFStringsSchema.optional(),
 });
 
 /** Root object of an `.obf` file: the complete definition of a single communication board. See {@link OBFBoardSchema}. */
-export type OBFBoard = z.infer<typeof OBFBoardSchema>;
+export interface OBFBoard extends z.infer<typeof OBFBoardSchema> {}
+
+/** Fields of the manifest's `paths` object. */
+type OBFManifestPathsShape = {
+  /** Mapping of board IDs to their file paths. */
+  boards: z.ZodRecord<z.ZodString, z.ZodString>;
+  /** Mapping of image IDs to their file paths. */
+  images: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+  /** Mapping of sound IDs to their file paths. */
+  sounds: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+};
+
+/** Fields of {@link OBFManifestSchema}. */
+type OBFManifestShape = {
+  /** Format version of the Open Board Format, e.g., `open-board-0.1`. Must start with `open-board-`. */
+  format: typeof OBFFormatVersionSchema;
+  /** Path to the root board within the `.obz` package. Must be one of the paths in `paths.boards`. */
+  root: z.ZodString;
+  /** Mapping of IDs to paths for boards, images, and sounds. */
+  paths: z.ZodObject<OBFManifestPathsShape, z.core.$loose>;
+};
 
 /**
  * Table of contents for an `.obz` package, mapping resource IDs to their archive paths.
  */
-export const OBFManifestSchema = z
-  .looseObject({
-    /** Format version of the Open Board Format, e.g., `open-board-0.1`. */
-    format: OBFFormatVersionSchema,
-    /** Path to the root board within the `.obz` package. */
-    root: z.string(),
-    /** Mapping of IDs to paths for boards, images, and sounds. */
-    paths: z.looseObject({
-      /** Mapping of board IDs to their file paths. */
-      boards: z.record(z.string(), z.string()),
-      /** Mapping of image IDs to their file paths. */
-      images: z.record(z.string(), z.string()).optional(),
-      /** Mapping of sound IDs to their file paths. */
-      sounds: z.record(z.string(), z.string()).optional(),
-    }),
-  })
-  .refine((m) => Object.values(m.paths.boards).includes(m.root), {
-    message: "root must be listed in paths.boards",
-    path: ["root"],
-  });
+export const OBFManifestSchema = obfObject<OBFManifestShape>({
+  format: OBFFormatVersionSchema,
+  root: z.string(),
+  paths: obfObject<OBFManifestPathsShape>({
+    boards: z.record(z.string(), z.string()),
+    images: z.record(z.string(), z.string()).optional(),
+    sounds: z.record(z.string(), z.string()).optional(),
+  }),
+}).refine((m) => Object.values(m.paths.boards).includes(m.root), {
+  message: "root must be listed in paths.boards",
+  path: ["root"],
+});
 
 /** Table of contents for an `.obz` package, mapping resource IDs to their archive paths. See {@link OBFManifestSchema}. */
-export type OBFManifest = z.infer<typeof OBFManifestSchema>;
+export interface OBFManifest extends z.infer<typeof OBFManifestSchema> {}

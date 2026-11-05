@@ -34,6 +34,7 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "check:dts": "node scripts/check-dts.mjs",
     "dev": "tsdown --watch",
     "lint": "oxlint",
     "format": "oxfmt",
