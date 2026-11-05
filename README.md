@@ -188,7 +188,7 @@ Validation returns a parsed copy of the input. Known fields may be normalized du
 
 - Numeric IDs become strings.
 - Empty optional IDs, URLs, and email addresses become `undefined`.
-- Unknown properties are preserved at every loose-object level, with or without an `ext_` prefix.
+- Unknown properties are preserved on every object, with or without an `ext_` prefix.
 
 Structural validation checks:
 
