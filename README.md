@@ -71,7 +71,7 @@ import { createOBZ } from "@shayc/open-board-format";
 const obz = await createOBZ([board], board.id, resources);
 ```
 
-`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board.
+`createOBZ` generates the manifest automatically, writes boards to `boards/<encoded-id>.obf`, and uses `rootBoardId` as the archive's entry-point board. Media in already-compressed formats, such as PNG, JPEG, and MP3, is stored without recompression.
 
 ### Validate a board
 

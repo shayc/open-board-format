@@ -6,8 +6,23 @@ import { OBFError } from "./errors";
 import { parseOBF, stripBom } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
-import type { BinaryInput, UnzipOptions } from "./zip";
-import { isZip, toArrayBuffer, unzip, zip } from "./zip";
+import type { BinaryInput, CompressionLevel, UnzipOptions } from "./zip";
+import { isZip, toArrayBuffer, unzip, zipWithLevels } from "./zip";
+
+/**
+ * Media formats that are already compressed. Deflate saves about 1% on them
+ * (1.4% on the PNGs in a 70 MB real board set) at most of the archive's
+ * compression time, so `createOBZ` stores them as-is.
+ */
+const PRECOMPRESSED_EXTENSION =
+  /\.(?:png|jpe?g|gif|webp|avif|mp3|m4a|aac|ogg|oga|opus|mp4|webm)$/i;
+
+/** Deflate level for everything else, on fflate's 0–9 scale. */
+const DEFLATE_LEVEL = 6;
+
+function compressionLevelFor(path: string): CompressionLevel {
+  return PRECOMPRESSED_EXTENSION.test(path) ? 0 : DEFLATE_LEVEL;
+}
 
 /**
  * Fully extracted contents of an `.obz` archive.
@@ -129,6 +144,10 @@ export function parseManifest(json: string): OBFManifest {
  * A manifest is generated automatically from the supplied boards,
  * using the `rootBoardId` to designate the entry-point board.
  *
+ * Resources in already-compressed formats (PNG, JPEG, GIF, WebP, AVIF, MP3,
+ * AAC, Ogg, Opus, MP4, WebM, by file extension) are stored without
+ * recompression; everything else is deflated.
+ *
  * Every failure is an {@link OBFError}; branch on `info.code`.
  *
  * @param boards - The boards to include in the archive.
@@ -227,7 +246,7 @@ export async function createOBZ(
   assertPathsPresent("image", imagePaths, entries);
   assertPathsPresent("sound", soundPaths, entries);
 
-  const compressed = await zip(entries);
+  const compressed = await zipWithLevels(entries, compressionLevelFor);
   return new Blob([compressed], { type: "application/zip" });
 }
 

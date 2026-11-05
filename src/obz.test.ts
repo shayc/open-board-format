@@ -1,3 +1,4 @@
+import { unzipSync } from "fflate";
 import { describe, expect, test } from "vitest";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
@@ -236,6 +237,43 @@ describe("createOBZ", () => {
     const extracted = await extractOBZ(await obzBlob.arrayBuffer());
 
     expect(extracted.resources.get("images/test.png")).toEqual(imageData);
+  });
+
+  test("stores already-compressed media and deflates everything else", async () => {
+    const text = new TextEncoder().encode("<svg></svg>".repeat(100));
+    const resources = new Map([
+      ["images/a.png", new Uint8Array(500)],
+      ["images/b.JPG", new Uint8Array(500)],
+      ["sounds/c.mp3", new Uint8Array(500)],
+      ["images/d.svg", text],
+      ["sounds/e.wav", new Uint8Array(500)],
+    ]);
+
+    const blob = await createOBZ([makeBoard()], "b", resources);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+
+    // ZIP compression methods: 0 = stored, 8 = deflate.
+    const methods: Record<string, number> = {};
+    unzipSync(bytes, {
+      filter: (file) => {
+        methods[file.name] = file.compression;
+        return false;
+      },
+    });
+    expect(methods).toEqual({
+      "manifest.json": 8,
+      "boards/b.obf": 8,
+      "images/a.png": 0,
+      "images/b.JPG": 0,
+      "sounds/c.mp3": 0,
+      "images/d.svg": 8,
+      "sounds/e.wav": 8,
+    });
+
+    const extracted = await extractOBZ(bytes);
+    for (const [path, content] of resources) {
+      expect(extracted.resources.get(path)).toEqual(content);
+    }
   });
 
   test("throws when rootBoardId does not match any supplied board", async () => {
