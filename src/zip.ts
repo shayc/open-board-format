@@ -88,7 +88,7 @@ export interface UnzipOptions {
 export function unzip(
   archive: ArrayBuffer,
   options?: UnzipOptions,
-): Promise<Map<string, Uint8Array>> {
+): Promise<Map<string, Uint8Array<ArrayBuffer>>> {
   for (const key of [
     "maxEntrySize",
     "maxTotalOriginalSize",
@@ -214,7 +214,7 @@ export function unzip(
  */
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   return new Promise((resolve, reject) => {
     const pathToBytes: Record<string, Uint8Array> = {};
 

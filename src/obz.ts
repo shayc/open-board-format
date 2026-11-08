@@ -27,7 +27,7 @@ export interface ParsedOBZ {
    * including `manifest.json` and the `.obf` boards as well as media
    * such as images and sounds.
    */
-  resources: Map<string, Uint8Array>;
+  resources: Map<string, Uint8Array<ArrayBuffer>>;
 }
 
 /**

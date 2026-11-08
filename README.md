@@ -119,7 +119,7 @@ interface ParsedOBZ {
   manifest: OBFManifest;
   boards: Map<string, OBFBoard>; // keyed by board ID
   rootBoard: OBFBoard; // the board at manifest.root
-  resources: Map<string, Uint8Array>; // every archive entry, keyed by path
+  resources: Map<string, Uint8Array<ArrayBuffer>>; // every archive entry, keyed by path
 }
 ```
 
@@ -177,11 +177,11 @@ Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
 
 ### Low-level ZIP utilities
 
-| Function                  | Returns                            | Behavior                                                   |
-| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| `isZip(buffer)`           | `boolean`                          | Check whether an `ArrayBuffer` or view has a ZIP signature |
-| `zip(entries)`            | `Promise<Uint8Array>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
-| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array>>` | Extract an `ArrayBuffer` and omit directory markers        |
+| Function                  | Returns                                         | Behavior                                                   |
+| ------------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| `isZip(buffer)`           | `boolean`                                       | Check whether an `ArrayBuffer` or view has a ZIP signature |
+| `zip(entries)`            | `Promise<Uint8Array<ArrayBuffer>>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
+| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array<ArrayBuffer>>>` | Extract an `ArrayBuffer` and omit directory markers        |
 
 ## Validation details
 
