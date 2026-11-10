@@ -7,7 +7,7 @@ import type { ParsedOBZ } from "./obz";
 import { extractOBZ } from "./obz";
 import type { OBFBoard } from "./schema";
 import type { BinaryInput, UnzipOptions } from "./zip";
-import { isZip, toBytes } from "./zip";
+import { isZip, toArrayBuffer } from "./zip";
 
 /**
  * Result of {@link loadBoard} — a discriminated union over the two file
@@ -54,11 +54,11 @@ export async function loadBoard(
   input: BinaryInput,
   options?: UnzipOptions,
 ): Promise<LoadedBoard> {
-  const bytes = await toBytes(input);
+  const buffer = await toArrayBuffer(input);
 
-  if (isZip(bytes)) {
-    return { format: "obz", archive: await extractOBZ(bytes, options) };
+  if (isZip(buffer)) {
+    return { format: "obz", archive: await extractOBZ(buffer, options) };
   }
 
-  return { format: "obf", board: parseOBF(new TextDecoder().decode(bytes)) };
+  return { format: "obf", board: parseOBF(new TextDecoder().decode(buffer)) };
 }
