@@ -39,6 +39,21 @@ function asBytes(input: ArrayBuffer | ArrayBufferView): Uint8Array {
 }
 
 /**
+ * Bytes backed by a buffer no larger than themselves, for handing to fflate.
+ *
+ * fflate posts each large entry to a worker as a subarray, and a structured
+ * clone of a subarray copies its whole backing buffer. A view onto part of a
+ * larger buffer is therefore copied down to its own window first, so workers
+ * clone the archive at most, never the unrelated bytes around it. A buffer, or
+ * a view spanning its whole buffer (such as {@link zip}'s output), is used in
+ * place.
+ */
+function compactBytes(input: ArrayBuffer | ArrayBufferView): Uint8Array {
+  const bytes = asBytes(input);
+  return bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+}
+
+/**
  * Normalize any {@link BinaryInput} shape into bytes. Buffers and views are
  * wrapped in place, not copied; a `File`/`Blob` is read once.
  */
@@ -79,7 +94,8 @@ export interface UnzipOptions {
  *
  * @param archive - The ZIP archive as an `ArrayBuffer` or any
  *   `ArrayBufferView` (e.g. a `Uint8Array` or Node `Buffer`), so the output of
- *   {@link zip} can be passed directly. A view is read in place, not copied.
+ *   {@link zip} can be passed directly. A view onto part of a larger buffer
+ *   is copied to its own window first; anything else is read in place.
  * @param options - Optional {@link UnzipOptions}. `options.limits` is checked
  *   per entry against declared (metadata) sizes before that entry is
  *   inflated. No limits are applied by default.
@@ -106,7 +122,7 @@ export function unzip(
   }
 
   return new Promise((resolve, reject) => {
-    const compressed = asBytes(archive);
+    const compressed = compactBytes(archive);
     const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
       options?.limits ?? {};
 
