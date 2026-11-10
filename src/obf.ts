@@ -26,17 +26,51 @@ export function stripBom(text: string): string {
  *   malformed, or `"invalid-board"` if it fails schema validation.
  */
 export function parseOBF(json: string): OBFBoard {
-  const sanitized = stripBom(json);
+  return parseBoard(json);
+}
 
+/**
+ * Where a board came from, attached to the errors raised while reading it so
+ * a failure inside a package names the board at fault.
+ */
+export interface BoardLocation {
+  /** The board's ID, as declared by the manifest or the board itself. */
+  boardId?: string;
+  /** The board's path within its archive. */
+  path?: string;
+}
+
+/**
+ * {@link parseOBF} with a {@link BoardLocation} for its errors. Internal: the
+ * public entry points are {@link parseOBF} and `extractOBZ`.
+ */
+export function parseBoard(json: string, location?: BoardLocation): OBFBoard {
   let rawBoard: unknown;
 
   try {
-    rawBoard = JSON.parse(sanitized) as unknown;
+    rawBoard = JSON.parse(stripBom(json)) as unknown;
   } catch (error) {
-    throw new OBFError({ code: "not-json", source: "board" }, { cause: error });
+    throw new OBFError(
+      { code: "not-json", source: "board", ...location },
+      { cause: error },
+    );
   }
 
-  return validateOBF(rawBoard);
+  return validateBoard(rawBoard, location);
+}
+
+/** {@link validateOBF} with a {@link BoardLocation} for its error. */
+function validateBoard(data: unknown, location?: BoardLocation): OBFBoard {
+  const result = OBFBoardSchema.safeParse(data);
+
+  if (!result.success) {
+    throw new OBFError(
+      { code: "invalid-board", ...location, issues: result.error.issues },
+      { cause: result.error },
+    );
+  }
+
+  return result.data;
 }
 
 /**
@@ -65,16 +99,7 @@ export async function loadOBF(file: File): Promise<OBFBoard> {
  *   schema validation. `info.issues` holds the underlying Zod issues.
  */
 export function validateOBF(data: unknown): OBFBoard {
-  const result = OBFBoardSchema.safeParse(data);
-
-  if (!result.success) {
-    throw new OBFError(
-      { code: "invalid-board", issues: result.error.issues },
-      { cause: result.error },
-    );
-  }
-
-  return result.data;
+  return validateBoard(data);
 }
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import { OBFError } from "./errors";
-import { parseOBF, stripBom } from "./obf";
+import { parseBoard, stripBom } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import type { BinaryInput, UnzipOptions } from "./zip";
@@ -66,7 +66,8 @@ export async function loadOBZ(
  *   `"unreadable-zip"`, `"archive-too-large"` (a limit in `options.limits` is
  *   exceeded), `"missing-manifest"`, `"not-json"` or `"invalid-manifest"`
  *   (bad manifest), `"missing-board"`, `"board-id-mismatch"`, or
- *   `"invalid-board"` (a board fails validation).
+ *   `"not-json"` / `"invalid-board"` (a board fails to parse or validate;
+ *   `info.boardId` and `info.path` name it).
  * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export async function extractOBZ(
@@ -397,7 +398,7 @@ function extractBoards(
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
-    const board = parseOBF(boardJson);
+    const board = parseBoard(boardJson, { boardId: id, path });
 
     if (board.id !== id) {
       throw new OBFError({

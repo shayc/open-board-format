@@ -152,11 +152,11 @@ try {
 
 | Area           | `info.code`         | Additional fields                                  |
 | -------------- | ------------------- | -------------------------------------------------- |
-| Decoding       | `not-json`          | `source`                                           |
+| Decoding       | `not-json`          | `source`, `boardId?`, `path?`                      |
 | Decoding       | `not-zip`           | —                                                  |
 | Decoding       | `unreadable-zip`    | —                                                  |
 | Limits         | `archive-too-large` | `limit`, `path`, and fields for the exceeded limit |
-| Validation     | `invalid-board`     | `issues`, `boardId?`                               |
+| Validation     | `invalid-board`     | `issues`, `boardId?`, `path?`                      |
 | Validation     | `invalid-manifest`  | `issues`                                           |
 | OBZ extraction | `missing-manifest`  | —                                                  |
 | OBZ extraction | `missing-board`     | `boardId`, `path`                                  |

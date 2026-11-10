@@ -45,6 +45,25 @@ describe("OBFError", () => {
     expect(error.cause).toBe(root);
   });
 
+  test("names a failing board by whichever of its ID and path are known", () => {
+    const message = (location: { boardId?: string; path?: string }) =>
+      new OBFError({ code: "not-json", source: "board", ...location }).message;
+
+    expect(message({})).toBe("Invalid OBF: not valid JSON");
+    expect(message({ boardId: "b" })).toBe(
+      'Invalid OBF board "b": not valid JSON',
+    );
+    expect(message({ path: "boards/b.obf" })).toBe(
+      'Invalid OBF board at "boards/b.obf": not valid JSON',
+    );
+    expect(new OBFError({ code: "invalid-board", issues: [] }).message).toMatch(
+      /^Invalid OBF board:/,
+    );
+    expect(
+      new OBFError({ code: "invalid-board", boardId: "", issues: [] }).message,
+    ).toMatch(/^Invalid OBF board:/);
+  });
+
   test("omits `cause` when no options are passed", () => {
     expect(new OBFError({ code: "not-zip" }).cause).toBeUndefined();
   });
