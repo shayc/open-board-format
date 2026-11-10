@@ -108,6 +108,8 @@ const board = validateOBF(value);
 
 Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `load_board`, `image_id`, or `sound_id` references.
 
+The ID `__proto__` cannot be a manifest key, so `createOBZ` reports `invalid-board` for a board with that ID or for an image or sound that has both that ID and a `path`.
+
 ### Types and schemas
 
 ```ts
