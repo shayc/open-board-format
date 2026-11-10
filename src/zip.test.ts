@@ -93,6 +93,32 @@ describe("zip", () => {
   });
 });
 
+describe("zip entry names", () => {
+  test('rejects an entry named "__proto__" instead of dropping it', async () => {
+    const info = await expectOBFErrorAsync(
+      zip(new Map([["__proto__", new Uint8Array([1])]])),
+    );
+
+    expect(info).toStrictEqual({ code: "zip-failed" });
+  });
+
+  test("keeps entries named after other Object.prototype members", async () => {
+    const archive = await zip(
+      new Map([
+        ["constructor", new Uint8Array([1])],
+        ["images/__proto__", new Uint8Array([2])],
+      ]),
+    );
+
+    const entries = await unzip(bytesToArrayBuffer(archive));
+
+    expect([...entries.keys()]).toStrictEqual([
+      "constructor",
+      "images/__proto__",
+    ]);
+  });
+});
+
 describe("unzip", () => {
   test("rejects with an unreadable-zip OBFError for invalid data", async () => {
     const invalidData = bytesToArrayBuffer(
