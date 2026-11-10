@@ -1,5 +1,16 @@
 # @shayc/open-board-format
 
+## 1.6.0
+
+### Minor Changes
+
+- 280108d: `extractOBZ`, `loadOBZ`, and `loadBoard` now say which board failed: a `not-json` or `invalid-board` error for a board inside an archive carries `info.boardId` and `info.path`, and names both in its message.
+- df8e153: `unzip` now accepts any `ArrayBufferView` as well as an `ArrayBuffer`, so the output of `zip` can be passed straight back in.
+
+### Patch Changes
+
+- 2e9aced: `createOBZ` no longer fails with a false `conflicting-paths` error when an image or sound ID matches an `Object.prototype` member such as `constructor` or `toString`. The ID `__proto__`, which an OBZ manifest cannot represent, now reports `invalid-board` with a clear issue for boards and path-backed media instead of an `internal` or `conflicting-paths` error. `zip` rejects an entry named exactly `__proto__` with `zip-failed` instead of silently dropping it.
+
 ## 1.5.0
 
 ### Minor Changes
