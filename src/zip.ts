@@ -215,7 +215,7 @@ export function unzip(
  * @returns The compressed archive as a `Uint8Array`.
  *
  * @throws {@link OBFError} with `info.code` `"zip-failed"` if fflate fails to
- *   compress an entry.
+ *   compress an entry, or if an entry is named exactly `__proto__`.
  */
 export function zip(
   entries: Map<string, Uint8Array | ArrayBuffer>,
@@ -224,6 +224,18 @@ export function zip(
     const pathToBytes: Record<string, Uint8Array> = {};
 
     for (const [path, content] of entries) {
+      // fflate collects entries in plain objects, where this one name would
+      // set the prototype and the entry would vanish from the archive.
+      if (path === "__proto__") {
+        reject(
+          new OBFError(
+            { code: "zip-failed" },
+            { cause: new Error('An entry cannot be named "__proto__"') },
+          ),
+        );
+        return;
+      }
+
       pathToBytes[path] =
         content instanceof Uint8Array ? content : new Uint8Array(content);
     }

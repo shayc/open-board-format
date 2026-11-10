@@ -3,9 +3,9 @@
  */
 
 import { OBFError } from "./errors";
-import { parseBoard, stripBom, validateBoard } from "./obf";
+import { parseBoard, stripBom } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
-import { OBFManifestSchema } from "./schema";
+import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import type { BinaryInput, UnzipOptions } from "./zip";
 import { isZip, toBytes, unzip, zip } from "./zip";
 
@@ -142,7 +142,8 @@ export function parseManifest(json: string): OBFManifest {
  * @throws {@link OBFError} `"duplicate-board"` if two supplied boards share
  *   the same ID.
  * @throws {@link OBFError} `"invalid-board"` if a supplied board fails schema
- *   validation.
+ *   validation, or if it — or one of its media with a `path` — has the ID
+ *   `__proto__`, which an OBZ manifest cannot represent.
  * @throws {@link OBFError} `"conflicting-paths"` if two boards map the same
  *   media ID to different paths.
  * @throws {@link OBFError} `"missing-resource"` if a board declares an image
@@ -237,17 +238,65 @@ export async function createOBZ(
 // ---------------------------------------------------------------------------
 
 /**
+ * The one ID an OBZ manifest cannot carry: manifests key boards and media by ID
+ * in plain JSON objects, where a `__proto__` key is dropped on read.
+ */
+const UNPACKAGEABLE_ID = "__proto__";
+
+const UNPACKAGEABLE_ID_MESSAGE = `The id "${UNPACKAGEABLE_ID}" cannot be used as an OBZ manifest key`;
+
+/**
+ * {@link OBFBoardSchema} plus the packaging-only rule that the board, and any
+ * media the manifest will list (those with a `path`), avoid
+ * {@link UNPACKAGEABLE_ID}.
+ */
+const PackagedBoardSchema = OBFBoardSchema.superRefine((board, ctx) => {
+  if (board.id === UNPACKAGEABLE_ID) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["id"],
+      message: UNPACKAGEABLE_ID_MESSAGE,
+    });
+  }
+
+  for (const kind of ["images", "sounds"] as const) {
+    for (const [index, media] of (board[kind] ?? []).entries()) {
+      if (media.id === UNPACKAGEABLE_ID && media.path !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [kind, index, "id"],
+          message: UNPACKAGEABLE_ID_MESSAGE,
+        });
+      }
+    }
+  }
+});
+
+/**
  * Validate a board passed to {@link createOBZ}, reporting its `id` when the
  * raw input has a usable one.
  */
 function validateBoardForPackaging(board: OBFBoard): OBFBoard {
-  const rawId: unknown = board.id;
-  const hasUsableId = typeof rawId === "string" || typeof rawId === "number";
+  const result = PackagedBoardSchema.safeParse(board);
 
-  return validateBoard(
-    board,
-    hasUsableId ? { boardId: String(rawId) } : undefined,
-  );
+  if (!result.success) {
+    const rawId: unknown = board.id;
+    const boardId =
+      typeof rawId === "string" || typeof rawId === "number"
+        ? String(rawId)
+        : undefined;
+
+    throw new OBFError(
+      {
+        code: "invalid-board",
+        ...(boardId !== undefined && { boardId }),
+        issues: result.error.issues,
+      },
+      { cause: result.error },
+    );
+  }
+
+  return result.data;
 }
 
 /**
@@ -273,7 +322,9 @@ function collectMediaPaths(
   boards: OBFBoard[],
   kind: "images" | "sounds",
 ): Record<string, string> {
-  const paths: Record<string, string> = {};
+  // A Map, not a plain object: IDs such as "constructor" or "toString" would
+  // otherwise read inherited `Object.prototype` members as existing paths.
+  const paths = new Map<string, string>();
 
   for (const board of boards) {
     for (const media of board[kind] ?? []) {
@@ -281,7 +332,7 @@ function collectMediaPaths(
         continue;
       }
 
-      const existing = paths[media.id];
+      const existing = paths.get(media.id);
       if (existing !== undefined && existing !== media.path) {
         throw new OBFError({
           code: "conflicting-paths",
@@ -290,11 +341,11 @@ function collectMediaPaths(
           paths: [existing, media.path],
         });
       }
-      paths[media.id] = media.path;
+      paths.set(media.id, media.path);
     }
   }
 
-  return paths;
+  return Object.fromEntries(paths);
 }
 
 /**

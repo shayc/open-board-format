@@ -59,11 +59,8 @@ export function parseBoard(json: string, location?: BoardLocation): OBFBoard {
   return validateBoard(rawBoard, location);
 }
 
-/** {@link validateOBF} with a {@link BoardLocation} for its error. Internal. */
-export function validateBoard(
-  data: unknown,
-  location?: BoardLocation,
-): OBFBoard {
+/** {@link validateOBF} with a {@link BoardLocation} for its error. */
+function validateBoard(data: unknown, location?: BoardLocation): OBFBoard {
   const result = OBFBoardSchema.safeParse(data);
 
   if (!result.success) {

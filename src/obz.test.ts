@@ -521,6 +521,101 @@ describe("createOBZ", () => {
   });
 });
 
+describe("createOBZ with Object.prototype key IDs", () => {
+  test.each(["constructor", "toString", "hasOwnProperty"])(
+    "round-trips media ID %j",
+    async (mediaId) => {
+      const board = makeBoard({
+        images: [{ id: mediaId, path: "images/a.png" }],
+        sounds: [{ id: mediaId, path: "sounds/a.mp3" }],
+      });
+      const resources = new Map([
+        ["images/a.png", new Uint8Array([1])],
+        ["sounds/a.mp3", new Uint8Array([2])],
+      ]);
+
+      const extracted = await extractOBZ(
+        await createOBZ([board], "b", resources),
+      );
+
+      expect(extracted.manifest.paths.images).toStrictEqual({
+        [mediaId]: "images/a.png",
+      });
+      expect(extracted.manifest.paths.sounds).toStrictEqual({
+        [mediaId]: "sounds/a.mp3",
+      });
+    },
+  );
+
+  test('round-trips board ID "constructor"', async () => {
+    const extracted = await extractOBZ(
+      await createOBZ([makeBoard({ id: "constructor" })], "constructor"),
+    );
+
+    expect(extracted.rootBoard.id).toBe("constructor");
+  });
+
+  test("still detects a real conflict on a prototype-key media ID", async () => {
+    const board1 = makeBoard({
+      id: "b1",
+      images: [{ id: "constructor", path: "images/a.png" }],
+    });
+    const board2 = makeBoard({
+      id: "b2",
+      images: [{ id: "constructor", path: "images/b.png" }],
+    });
+
+    expect(
+      await expectOBFErrorAsync(createOBZ([board1, board2], "b1")),
+    ).toMatchObject({
+      code: "conflicting-paths",
+      mediaId: "constructor",
+      paths: ["images/a.png", "images/b.png"],
+    });
+  });
+
+  test('rejects board ID "__proto__" as invalid-board', async () => {
+    const info = await expectOBFErrorAsync(
+      createOBZ([makeBoard({ id: "__proto__" })], "__proto__"),
+    );
+
+    expect(info).toMatchObject({
+      code: "invalid-board",
+      boardId: "__proto__",
+      issues: [{ code: "custom", path: ["id"] }],
+    });
+  });
+
+  test('rejects path-backed media ID "__proto__" as invalid-board', async () => {
+    const board = makeBoard({
+      images: [{ id: "__proto__", path: "images/a.png" }],
+      sounds: [{ id: "__proto__", path: "sounds/a.mp3" }],
+    });
+
+    const info = await expectOBFErrorAsync(createOBZ([board], "b"));
+
+    expect(info).toMatchObject({
+      code: "invalid-board",
+      boardId: "b",
+      issues: [
+        { code: "custom", path: ["images", 0, "id"] },
+        { code: "custom", path: ["sounds", 0, "id"] },
+      ],
+    });
+  });
+
+  test('accepts media ID "__proto__" without a path', async () => {
+    const board = makeBoard({
+      images: [{ id: "__proto__", url: "https://example.com/x.png" }],
+    });
+
+    const extracted = await extractOBZ(await createOBZ([board], "b"));
+
+    expect(extracted.rootBoard.images?.[0]?.id).toBe("__proto__");
+    expect(extracted.manifest.paths.images).toStrictEqual({});
+  });
+});
+
 describe("Integration: createOBZ and extractOBZ", () => {
   test("round-trip handles multiple boards", async () => {
     const board1 = makeBoard({
