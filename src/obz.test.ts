@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { OBFError } from "./errors";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
 import type { OBFBoard } from "./schema";
 import {
@@ -104,6 +105,67 @@ describe("extractOBZ", () => {
       code: "missing-board",
       boardId: "missing",
       path: "boards/missing.obf",
+    });
+  });
+
+  describe("names the failing board", () => {
+    const goodBoard = JSON.stringify({
+      format: "open-board-0.1",
+      id: "good",
+      buttons: [],
+      grid: { rows: 1, columns: 1, order: [[null]] },
+    });
+    const manifest = JSON.stringify({
+      format: "open-board-0.1",
+      root: "boards/good.obf",
+      paths: {
+        boards: { good: "boards/good.obf", bad: "boards/bad.obf" },
+        images: {},
+      },
+    });
+
+    async function archiveWithBadBoard(badBoard: string) {
+      const encoder = new TextEncoder();
+      return zip(
+        new Map([
+          ["manifest.json", encoder.encode(manifest)],
+          ["boards/good.obf", encoder.encode(goodBoard)],
+          ["boards/bad.obf", encoder.encode(badBoard)],
+        ]),
+      );
+    }
+
+    test("invalid-board carries the manifest's board ID and path", async () => {
+      const archive = await archiveWithBadBoard(JSON.stringify({ id: "bad" }));
+
+      const error = await extractOBZ(archive).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(OBFError);
+      expect((error as OBFError).info).toMatchObject({
+        code: "invalid-board",
+        boardId: "bad",
+        path: "boards/bad.obf",
+      });
+      expect((error as OBFError).message).toContain(
+        'board "bad" at "boards/bad.obf"',
+      );
+    });
+
+    test("not-json carries the manifest's board ID and path", async () => {
+      const archive = await archiveWithBadBoard("{ not json");
+
+      const error = await extractOBZ(archive).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(OBFError);
+      expect((error as OBFError).info).toEqual({
+        code: "not-json",
+        source: "board",
+        boardId: "bad",
+        path: "boards/bad.obf",
+      });
+      expect((error as OBFError).message).toContain(
+        'board "bad" at "boards/bad.obf"',
+      );
     });
   });
 
