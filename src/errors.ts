@@ -39,22 +39,19 @@ export type OBFIssue = z.core.$ZodIssue;
  * Switch on `code`; each variant carries the fields relevant to it. When a
  * failure wraps an underlying error it lives on the standard `error.cause`,
  * never duplicated here. The only optional fields are the `boardId` and `path`
- * of `not-json` and `invalid-board`, which locate the failing board: both are
+ * of a board's `not-json` and `invalid-board`, which locate that board: both are
  * set when it was read from an `.obz` archive, and `boardId` alone when
  * `createOBZ` rejects a supplied board with a usable `id`.
  */
 export type OBFErrorInfo =
   // --- decoding (underlying parser/decompressor error on `error.cause`) ---
+  /** A manifest was not parseable JSON. */
+  | { code: "not-json"; source: "manifest" }
   /**
-   * Input was not parseable JSON. `boardId` and `path` are set for a board
+   * A board was not parseable JSON. `boardId` and `path` are set for a board
    * read from an archive.
    */
-  | {
-      code: "not-json";
-      source: "board" | "manifest";
-      boardId?: string;
-      path?: string;
-    }
+  | { code: "not-json"; source: "board"; boardId?: string; path?: string }
   /** An OBZ archive was expected, but the bytes are not a ZIP. */
   | { code: "not-zip" }
   /** A ZIP archive could not be decompressed. */
@@ -203,18 +200,14 @@ function formatOBFError(info: OBFErrorInfo): string {
 
 /**
  * Name the failing board as ` board "<id>" at "<path>"`, with whichever parts
- * are known; empty when neither is.
+ * are known; empty when neither is. An empty ID or path names nothing, so it
+ * counts as unknown.
  */
 function describeBoard(location: { boardId?: string; path?: string }): string {
-  const { boardId, path } = location;
+  const id = location.boardId ? ` "${location.boardId}"` : "";
+  const at = location.path ? ` at "${location.path}"` : "";
 
-  if (boardId === undefined && path === undefined) {
-    return "";
-  }
-
-  const id = boardId === undefined ? "" : ` "${boardId}"`;
-  const at = path === undefined ? "" : ` at "${path}"`;
-  return ` board${id}${at}`;
+  return id || at ? ` board${id}${at}` : "";
 }
 
 /** Render schema issues using Zod's pretty formatter. */

@@ -59,6 +59,9 @@ describe("OBFError", () => {
     expect(new OBFError({ code: "invalid-board", issues: [] }).message).toMatch(
       /^Invalid OBF board:/,
     );
+    expect(
+      new OBFError({ code: "invalid-board", boardId: "", issues: [] }).message,
+    ).toMatch(/^Invalid OBF board:/);
   });
 
   test("omits `cause` when no options are passed", () => {

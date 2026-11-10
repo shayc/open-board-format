@@ -26,43 +26,25 @@ const COMPRESSION_LEVEL = 6;
 export type BinaryInput = File | Blob | ArrayBuffer | ArrayBufferView;
 
 /**
- * View a buffer or typed-array view as bytes, without copying.
+ * Normalize any {@link BinaryInput} shape into a plain `ArrayBuffer`.
  *
- * A view keeps its own window (`byteOffset`/`byteLength`) rather than exposing
- * the whole of `.buffer`, since a `Uint8Array`/`Buffer` may cover only part of
- * a larger, possibly shared, underlying buffer.
+ * A view is sliced to its own window rather than returning `.buffer`
+ * directly, since a `Uint8Array`/`Buffer` may cover only part of a larger,
+ * possibly shared, underlying buffer.
  */
-function asBytes(input: ArrayBuffer | ArrayBufferView): Uint8Array {
-  return ArrayBuffer.isView(input)
-    ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
-    : new Uint8Array(input);
-}
-
-/**
- * Bytes backed by a buffer no larger than themselves, for handing to fflate.
- *
- * fflate posts each large entry to a worker as a subarray, and a structured
- * clone of a subarray copies its whole backing buffer. A view onto part of a
- * larger buffer is therefore copied down to its own window first, so workers
- * clone the archive at most, never the unrelated bytes around it. A buffer, or
- * a view spanning its whole buffer (such as {@link zip}'s output), is used in
- * place.
- */
-function compactBytes(input: ArrayBuffer | ArrayBufferView): Uint8Array {
-  const bytes = asBytes(input);
-  return bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
-}
-
-/**
- * Normalize any {@link BinaryInput} shape into bytes. Buffers and views are
- * wrapped in place, not copied; a `File`/`Blob` is read once.
- */
-export async function toBytes(input: BinaryInput): Promise<Uint8Array> {
-  if (input instanceof ArrayBuffer || ArrayBuffer.isView(input)) {
-    return asBytes(input);
+export async function toArrayBuffer(input: BinaryInput): Promise<ArrayBuffer> {
+  if (input instanceof ArrayBuffer) {
+    return input;
   }
 
-  return new Uint8Array(await input.arrayBuffer());
+  if (ArrayBuffer.isView(input)) {
+    return input.buffer.slice(
+      input.byteOffset,
+      input.byteOffset + input.byteLength,
+    ) as ArrayBuffer;
+  }
+
+  return input.arrayBuffer();
 }
 
 /**
@@ -92,10 +74,7 @@ export interface UnzipOptions {
  * even though ZIP doesn't require them) are dropped — they carry no content
  * and this map is documented as file paths to bytes.
  *
- * @param archive - The ZIP archive as an `ArrayBuffer` or any
- *   `ArrayBufferView` (e.g. a `Uint8Array` or Node `Buffer`), so the output of
- *   {@link zip} can be passed directly. A view onto part of a larger buffer
- *   is copied to its own window first; anything else is read in place.
+ * @param archive - The ZIP archive as an `ArrayBuffer`.
  * @param options - Optional {@link UnzipOptions}. `options.limits` is checked
  *   per entry against declared (metadata) sizes before that entry is
  *   inflated. No limits are applied by default.
@@ -107,7 +86,7 @@ export interface UnzipOptions {
  * @throws {@link TypeError} if a limit in `options.limits` is `NaN`.
  */
 export function unzip(
-  archive: ArrayBuffer | ArrayBufferView,
+  archive: ArrayBuffer,
   options?: UnzipOptions,
 ): Promise<Map<string, Uint8Array<ArrayBuffer>>> {
   for (const key of [
@@ -122,7 +101,7 @@ export function unzip(
   }
 
   return new Promise((resolve, reject) => {
-    const compressed = compactBytes(archive);
+    const compressed = new Uint8Array(archive);
     const { maxEntrySize, maxTotalOriginalSize, maxEntries } =
       options?.limits ?? {};
 
@@ -278,7 +257,9 @@ export function zip(
  * @returns `true` if the bytes start with the ZIP signature.
  */
 export function isZip(archive: ArrayBuffer | ArrayBufferView): boolean {
-  const bytes = asBytes(archive);
+  const bytes = ArrayBuffer.isView(archive)
+    ? new Uint8Array(archive.buffer, archive.byteOffset, archive.byteLength)
+    : new Uint8Array(archive);
 
   return (
     bytes.length >= ZIP_MAGIC.length &&

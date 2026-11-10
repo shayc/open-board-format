@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { expectOBFErrorAsync } from "./test-utils";
-import { isZip, toBytes, unzip, zip } from "./zip";
+import { isZip, toArrayBuffer, unzip, zip } from "./zip";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -315,52 +315,28 @@ describe("unzip limits", () => {
   });
 });
 
-describe("unzip input shapes", () => {
-  test("accepts the Uint8Array that zip() returns, with no conversion", async () => {
-    const zipped = await zip(new Map([["a.txt", new Uint8Array([1, 2, 3])]]));
-
-    const unzipped = await unzip(zipped);
-
-    expect(unzipped.get("a.txt")).toEqual(new Uint8Array([1, 2, 3]));
-  });
-
-  test("reads a view from its own window, ignoring surrounding bytes", async () => {
-    const zipped = await zip(new Map([["a.txt", new Uint8Array([1, 2, 3])]]));
-    const padded = new Uint8Array(zipped.byteLength + 20).fill(0xff);
-    padded.set(zipped, 7);
-
-    const unzipped = await unzip(padded.subarray(7, 7 + zipped.byteLength));
-
-    expect(unzipped.get("a.txt")).toEqual(new Uint8Array([1, 2, 3]));
-  });
-});
-
-describe("toBytes", () => {
-  test("wraps an ArrayBuffer without copying it", async () => {
+describe("toArrayBuffer", () => {
+  test("returns an ArrayBuffer input unchanged", async () => {
     const original = new Uint8Array([1, 2, 3]).buffer;
 
-    const result = await toBytes(original);
-
-    expect(result.buffer).toBe(original);
-    expect(result).toEqual(new Uint8Array([1, 2, 3]));
+    expect(await toArrayBuffer(original)).toBe(original);
   });
 
-  test("keeps a view's own window without copying, ignoring surrounding bytes", async () => {
+  test("slices a Uint8Array view to its own window, ignoring surrounding bytes", async () => {
     const padded = new Uint8Array([0xff, 0xff, 1, 2, 3, 0xff]);
-    const view = new DataView(padded.buffer, 2, 3);
+    const view = padded.subarray(2, 5);
 
-    const result = await toBytes(view);
+    const result = await toArrayBuffer(view);
 
-    expect(result.buffer).toBe(padded.buffer);
-    expect(result).toEqual(new Uint8Array([1, 2, 3]));
+    expect(new Uint8Array(result)).toEqual(new Uint8Array([1, 2, 3]));
   });
 
   test("reads a Blob via its arrayBuffer() method", async () => {
     const blob = new Blob([new Uint8Array([4, 5, 6])]);
 
-    const result = await toBytes(blob);
+    const result = await toArrayBuffer(blob);
 
-    expect(result).toEqual(new Uint8Array([4, 5, 6]));
+    expect(new Uint8Array(result)).toEqual(new Uint8Array([4, 5, 6]));
   });
 });
 

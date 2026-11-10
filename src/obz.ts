@@ -7,7 +7,7 @@ import { parseBoard, stripBom } from "./obf";
 import type { OBFBoard, OBFManifest } from "./schema";
 import { OBFBoardSchema, OBFManifestSchema } from "./schema";
 import type { BinaryInput, UnzipOptions } from "./zip";
-import { isZip, toBytes, unzip, zip } from "./zip";
+import { isZip, toArrayBuffer, unzip, zip } from "./zip";
 
 /**
  * Fully extracted contents of an `.obz` archive.
@@ -74,13 +74,13 @@ export async function extractOBZ(
   archive: BinaryInput,
   options?: UnzipOptions,
 ): Promise<ParsedOBZ> {
-  const bytes = await toBytes(archive);
+  const buffer = await toArrayBuffer(archive);
 
-  if (!isZip(bytes)) {
+  if (!isZip(buffer)) {
     throw new OBFError({ code: "not-zip" });
   }
 
-  const entries = await unzip(bytes, options);
+  const entries = await unzip(buffer, options);
 
   const manifest = extractManifest(entries);
   const { boards, rootBoard } = extractBoards(manifest, entries);
