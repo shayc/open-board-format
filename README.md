@@ -179,11 +179,11 @@ Direct schema `.parse()` calls throw `ZodError` rather than `OBFError`.
 
 ### Low-level ZIP utilities
 
-| Function                  | Returns                                         | Behavior                                                   |
-| ------------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
-| `isZip(buffer)`           | `boolean`                                       | Check whether an `ArrayBuffer` or view has a ZIP signature |
-| `zip(entries)`            | `Promise<Uint8Array<ArrayBuffer>>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`   |
-| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array<ArrayBuffer>>>` | Extract an `ArrayBuffer` and omit directory markers        |
+| Function                  | Returns                                         | Behavior                                                    |
+| ------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| `isZip(buffer)`           | `boolean`                                       | Check whether an `ArrayBuffer` or view has a ZIP signature  |
+| `zip(entries)`            | `Promise<Uint8Array<ArrayBuffer>>`              | Compress a map of paths to `Uint8Array` or `ArrayBuffer`    |
+| `unzip(buffer, options?)` | `Promise<Map<string, Uint8Array<ArrayBuffer>>>` | Extract an `ArrayBuffer` or view and omit directory markers |
 
 ## Validation details
 
