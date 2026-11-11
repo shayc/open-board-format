@@ -108,9 +108,9 @@ const board = validateOBF(value);
 
 Before writing an archive, `createOBZ` checks board IDs, the root board, generated paths, media-path conflicts, and declared media resources. It does not resolve `image_id` or `sound_id` references.
 
-Board links are identified by `load_board.id`; their `path` belongs to the archive:
+Board links are followed by `load_board.id`; their `path` belongs to the archive:
 
-- `extractOBZ` gives a link that names a packaged board only by `path` that board's `id`.
+- `extractOBZ` gives a link whose `path` names a packaged board that board's `id`, replacing any other `id`, since inside an archive the path decides which board a link opens.
 - `createOBZ` writes every `load_board.path`. A link whose `id` names a supplied board points at that board's file; any other link is packaged without a `path`.
 
 The ID `__proto__` cannot be a manifest key, so `createOBZ` reports `invalid-board` for a board with that ID or for an image or sound that has both that ID and a `path`.

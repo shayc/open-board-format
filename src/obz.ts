@@ -16,8 +16,8 @@ export interface ParsedOBZ {
   /** The package's table of contents. */
   manifest: OBFManifest;
   /**
-   * Validated board objects keyed by board ID. A `load_board` that names a
-   * packaged board only by `path` also carries that board's `id`.
+   * Validated board objects keyed by board ID. A `load_board` whose `path`
+   * names a packaged board carries that board's `id`.
    */
   boards: Map<string, OBFBoard>;
   /**
@@ -346,8 +346,12 @@ function withLinkPaths(
 }
 
 /**
- * Give each board link that names a packaged board only by `path` that
- * board's `id`, so callers can follow every link by ID.
+ * Give each board link whose `path` names a packaged board that board's `id`,
+ * so callers can follow every link by ID.
+ *
+ * Inside an archive the path is the link: the spec's own example pairs a path
+ * with an unrelated `id`, such as the board's ID in its source system, and the
+ * reference implementation likewise replaces the ID with the board it loads.
  */
 function withLinkIds(
   board: OBFBoard,
@@ -355,11 +359,8 @@ function withLinkIds(
 ): OBFBoard {
   const buttons = board.buttons.map((button) => {
     const link = button.load_board;
-    if (!link?.path || link.id !== undefined) {
-      return button;
-    }
-
-    const id = boardIdsByPath.get(link.path);
+    const id =
+      link?.path === undefined ? undefined : boardIdsByPath.get(link.path);
     if (id === undefined) {
       return button;
     }

@@ -270,10 +270,16 @@ describe("extractOBZ", () => {
       ]);
     });
 
-    test("keeps a link's own ID", async () => {
+    test("replaces a link's ID with the ID of the board at its path", async () => {
       expect(
-        await extractLinks([{ id: "other", path: "boards/home.obf" }]),
-      ).toEqual([{ id: "other", path: "boards/home.obf" }]);
+        await extractLinks([{ id: "1", path: "boards/home.obf" }]),
+      ).toEqual([{ id: "home", path: "boards/home.obf" }]);
+    });
+
+    test("keeps the ID of a link whose path names no packaged board", async () => {
+      expect(
+        await extractLinks([{ id: "1", path: "boards/gone.obf" }]),
+      ).toEqual([{ id: "1", path: "boards/gone.obf" }]);
     });
 
     test("leaves a link alone when no packaged board has its path", async () => {
