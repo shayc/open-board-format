@@ -15,7 +15,10 @@ import { isZip, toArrayBuffer, unzip, zip } from "./zip";
 export interface ParsedOBZ {
   /** The package's table of contents. */
   manifest: OBFManifest;
-  /** Validated board objects keyed by board ID. */
+  /**
+   * Validated board objects keyed by board ID. A `load_board` whose `path`
+   * names a packaged board carries that board's `id`.
+   */
   boards: Map<string, OBFBoard>;
   /**
    * The package's entry-point board — the one `manifest.root` points at,
@@ -130,6 +133,10 @@ export function parseManifest(json: string): OBFManifest {
  * A manifest is generated automatically from the supplied boards,
  * using the `rootBoardId` to designate the entry-point board.
  *
+ * Board paths are chosen here, so every `load_board.path` is written here
+ * too: a link whose `id` names a supplied board points at that board's file,
+ * and any other link is packaged without a `path`.
+ *
  * Every failure is an {@link OBFError}; branch on `info.code`.
  *
  * @param boards - The boards to include in the archive.
@@ -175,7 +182,9 @@ export async function createOBZ(
 
   const entries = new Map<string, Uint8Array | ArrayBuffer>();
 
-  const boardPaths = Object.fromEntries(
+  // A Map, not a plain object: link IDs such as "constructor" would otherwise
+  // read inherited `Object.prototype` members as board paths.
+  const boardPaths = new Map(
     validBoards.map((board) => [board.id, boardPath(board.id)]),
   );
 
@@ -186,7 +195,7 @@ export async function createOBZ(
     format: "open-board-0.1",
     root: boardPath(rootBoardId),
     paths: {
-      boards: boardPaths,
+      boards: Object.fromEntries(boardPaths),
       images: imagePaths,
       sounds: soundPaths,
     },
@@ -212,8 +221,8 @@ export async function createOBZ(
 
   for (const board of validBoards) {
     entries.set(
-      boardPaths[board.id]!,
-      encoder.encode(JSON.stringify(board, null, 2)),
+      boardPaths.get(board.id)!,
+      encoder.encode(JSON.stringify(withLinkPaths(board, boardPaths), null, 2)),
     );
   }
 
@@ -312,6 +321,57 @@ function boardPath(id: string): string {
 }
 
 /**
+ * Point each board link at the archive path of the board its `id` names.
+ *
+ * A path supplied by the caller described some earlier layout, and readers
+ * follow `path` before `id`, so a link to a board outside the archive loses its
+ * path rather than keeping one that resolves to the wrong file or none.
+ */
+function withLinkPaths(
+  board: OBFBoard,
+  boardPaths: ReadonlyMap<string, string>,
+): OBFBoard {
+  const buttons = board.buttons.map((button) => {
+    if (!button.load_board) {
+      return button;
+    }
+
+    const { id } = button.load_board;
+    const path = id === undefined ? undefined : boardPaths.get(id);
+
+    return { ...button, load_board: { ...button.load_board, path } };
+  });
+
+  return { ...board, buttons };
+}
+
+/**
+ * Give each board link whose `path` names a packaged board that board's `id`,
+ * so callers can follow every link by ID.
+ *
+ * Inside an archive the path is the link: the spec's own example pairs a path
+ * with an unrelated `id`, such as the board's ID in its source system, and the
+ * reference implementation likewise replaces the ID with the board it loads.
+ */
+function withLinkIds(
+  board: OBFBoard,
+  boardIdsByPath: ReadonlyMap<string, string>,
+): OBFBoard {
+  const buttons = board.buttons.map((button) => {
+    const link = button.load_board;
+    const id =
+      link?.path === undefined ? undefined : boardIdsByPath.get(link.path);
+    if (id === undefined) {
+      return button;
+    }
+
+    return { ...button, load_board: { ...link, id } };
+  });
+
+  return { ...board, buttons };
+}
+
+/**
  * Walk every board's media collection and produce the ID-to-path map the spec
  * calls "redundant but still required" for the OBZ manifest.
  *
@@ -390,7 +450,10 @@ function extractBoards(
   const boards = new Map<string, OBFBoard>();
   let rootBoard: OBFBoard | undefined;
 
-  for (const [id, path] of Object.entries(manifest.paths.boards)) {
+  const boardPaths = Object.entries(manifest.paths.boards);
+  const boardIdsByPath = new Map(boardPaths.map(([id, path]) => [path, id]));
+
+  for (const [id, path] of boardPaths) {
     const boardBytes = entries.get(path);
 
     if (!boardBytes) {
@@ -398,17 +461,18 @@ function extractBoards(
     }
 
     const boardJson = new TextDecoder().decode(boardBytes);
-    const board = parseBoard(boardJson, { boardId: id, path });
+    const parsedBoard = parseBoard(boardJson, { boardId: id, path });
 
-    if (board.id !== id) {
+    if (parsedBoard.id !== id) {
       throw new OBFError({
         code: "board-id-mismatch",
         path,
         declaredId: id,
-        actualId: board.id,
+        actualId: parsedBoard.id,
       });
     }
 
+    const board = withLinkIds(parsedBoard, boardIdsByPath);
     boards.set(id, board);
 
     if (path === manifest.root) {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { OBFError } from "./errors";
 import { createOBZ, extractOBZ, loadOBZ, parseManifest } from "./obz";
-import type { OBFBoard } from "./schema";
+import type { OBFBoard, OBFLoadBoard } from "./schema";
 import {
   expectOBFErrorAsync,
   makeBoard,
@@ -233,6 +233,59 @@ describe("extractOBZ", () => {
       path: "boards/a.obf",
       declaredId: "b",
       actualId: "a",
+    });
+  });
+
+  describe("board links", () => {
+    async function extractLinks(links: OBFLoadBoard[]) {
+      const manifest = JSON.stringify({
+        format: "open-board-0.1",
+        root: "boards/home.obf",
+        paths: { boards: { home: "boards/home.obf" } },
+      });
+      const board = JSON.stringify(
+        makeBoard({
+          id: "home",
+          buttons: links.map((load_board, index) => ({
+            id: String(index),
+            load_board,
+          })),
+        }),
+      );
+      const archive = await zip(
+        new Map([
+          ["manifest.json", new TextEncoder().encode(manifest)],
+          ["boards/home.obf", new TextEncoder().encode(board)],
+        ]),
+      );
+
+      const { rootBoard } = await extractOBZ(archive);
+
+      return rootBoard.buttons.map((button) => button.load_board);
+    }
+
+    test("gives a path-only link the ID of the board at that path", async () => {
+      expect(await extractLinks([{ path: "boards/home.obf" }])).toEqual([
+        { id: "home", path: "boards/home.obf" },
+      ]);
+    });
+
+    test("replaces a link's ID with the ID of the board at its path", async () => {
+      expect(
+        await extractLinks([{ id: "1", path: "boards/home.obf" }]),
+      ).toEqual([{ id: "home", path: "boards/home.obf" }]);
+    });
+
+    test("keeps the ID of a link whose path names no packaged board", async () => {
+      expect(
+        await extractLinks([{ id: "1", path: "boards/gone.obf" }]),
+      ).toEqual([{ id: "1", path: "boards/gone.obf" }]);
+    });
+
+    test("leaves a link alone when no packaged board has its path", async () => {
+      expect(await extractLinks([{ path: "boards/gone.obf" }])).toEqual([
+        { path: "boards/gone.obf" },
+      ]);
     });
   });
 
@@ -519,6 +572,64 @@ describe("createOBZ", () => {
       paths: ["sounds/a.mp3", "sounds/b.mp3"],
     });
   });
+
+  describe("board links", () => {
+    function boardLinkingTo(load_board: OBFLoadBoard) {
+      return makeBoard({
+        id: "home",
+        buttons: [{ id: "go", load_board }],
+        grid: { rows: 1, columns: 1, order: [["go"]] },
+      });
+    }
+
+    async function packageAndReadLink(boards: OBFBoard[]) {
+      const { manifest, rootBoard } = await extractOBZ(
+        await createOBZ(boards, "home"),
+      );
+
+      return { manifest, link: rootBoard.buttons[0]?.load_board };
+    }
+
+    test("points a link at the archive path of the board its ID names", async () => {
+      const { manifest, link } = await packageAndReadLink([
+        boardLinkingTo({ id: "next", path: "old-layout/next.obf" }),
+        makeBoard({ id: "next" }),
+      ]);
+
+      expect(link?.path).toBe(manifest.paths.boards.next);
+    });
+
+    test("packages a link to a board outside the archive without a path", async () => {
+      const { link } = await packageAndReadLink([
+        boardLinkingTo({
+          id: "elsewhere",
+          path: "boards/elsewhere.obf",
+          url: "https://example.com/elsewhere",
+        }),
+      ]);
+
+      expect(link).toEqual({
+        id: "elsewhere",
+        url: "https://example.com/elsewhere",
+      });
+    });
+
+    test("packages a path-only link without a path", async () => {
+      const { link } = await packageAndReadLink([
+        boardLinkingTo({ name: "Next", path: "boards/next.obf" }),
+      ]);
+
+      expect(link).toEqual({ name: "Next" });
+    });
+
+    test("leaves the supplied boards unchanged", async () => {
+      const board = boardLinkingTo({ id: "home", path: "old-layout/home.obf" });
+
+      await createOBZ([board], "home");
+
+      expect(board.buttons[0]?.load_board?.path).toBe("old-layout/home.obf");
+    });
+  });
 });
 
 describe("createOBZ with Object.prototype key IDs", () => {
@@ -553,6 +664,19 @@ describe("createOBZ with Object.prototype key IDs", () => {
     );
 
     expect(extracted.rootBoard.id).toBe("constructor");
+  });
+
+  test('packages a link to an unpackaged board "constructor" without a path', async () => {
+    const board = makeBoard({
+      buttons: [{ id: "go", load_board: { id: "constructor" } }],
+      grid: { rows: 1, columns: 1, order: [["go"]] },
+    });
+
+    const extracted = await extractOBZ(await createOBZ([board], "b"));
+
+    expect(extracted.rootBoard.buttons[0]?.load_board).toEqual({
+      id: "constructor",
+    });
   });
 
   test("still detects a real conflict on a prototype-key media ID", async () => {
@@ -719,6 +843,11 @@ describe("Integration: Real-world OBZ package", () => {
       "boards/url_images.obf",
       "boards/inline_images.obf",
     ]);
+    expect(
+      root?.buttons.flatMap((button) =>
+        button.load_board?.path ? [button.load_board.id] : [],
+      ),
+    ).toEqual(["url_images", "inline_images"]);
     expect(boards.get("url_images")).toBeDefined();
 
     const remote = root?.buttons.find(
@@ -749,5 +878,32 @@ describe("Integration: Real-world OBZ package", () => {
       .get("inline_images")
       ?.images?.map((image) => image.id);
     expect(inlineImageIds).toEqual(["99", "119"]);
+  });
+
+  test("repackages the archive with every board link still resolving", async () => {
+    const original = await extractOBZ(readFixtureArrayBuffer(FIXTURE));
+    const media = new Map(
+      [...original.resources].filter(
+        ([path]) => !path.endsWith(".obf") && path !== "manifest.json",
+      ),
+    );
+
+    const repackaged = await extractOBZ(
+      await createOBZ(
+        [...original.boards.values()],
+        original.rootBoard.id,
+        media,
+      ),
+    );
+    const links = [...repackaged.boards.values()].flatMap((board) =>
+      board.buttons.flatMap((button) =>
+        button.load_board?.path ? [button.load_board] : [],
+      ),
+    );
+
+    expect(links).toHaveLength(4);
+    for (const link of links) {
+      expect(link.path).toBe(repackaged.manifest.paths.boards[link.id ?? ""]);
+    }
   });
 });
